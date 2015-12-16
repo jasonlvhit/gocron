@@ -2,9 +2,9 @@
 package gocron
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 var err = 1
@@ -22,4 +22,5 @@ func TestSecond(*testing.T) {
 	defaultScheduler.Every(1).Second().Do(taskWithParams, 1, "hello")
 	defaultScheduler.Start()
 	time.Sleep(10 * time.Second)
+	defaultScheduler.Clear()
 }
