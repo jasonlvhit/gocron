@@ -193,7 +193,7 @@ func (tw *timerWheel) nextSlot(job *Job) (int, *timeSlot) {
 	nextSlot := (tw.currentSlot + int(math.Ceil(float64(job.nextRun.Sub(time.Now()))/float64(tw.SlotInterval)))) % len(tw.slots)
 
 	if tw.Logf != nil {
-		tw.Logf("%s was mapped to slot #%d", job.String(), nextSlot)
+		tw.Logf("%p was mapped to slot #%d", job, nextSlot)
 	}
 
 	return nextSlot, &tw.slots[nextSlot]

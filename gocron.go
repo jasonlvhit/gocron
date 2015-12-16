@@ -20,7 +20,6 @@ package gocron
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"runtime"
 	"sort"
@@ -212,7 +211,7 @@ func (j *Job) Seconds() (job *Job) {
 	return j
 }
 
-// Set the unit with seconds
+// Set the unit with milliseconds
 func (j *Job) Milliseconds() (job *Job) {
 	j.unit = "milliseconds"
 	return j
