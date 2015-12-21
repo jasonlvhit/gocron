@@ -128,13 +128,13 @@ func (j *Job) init(now time.Time) {
 		// the lastRun time either occured `interval` weeks ago, so that its nextRun will come up some time this week
 		// or the lastRun occured this week already so that its nextRun will come up some time `interval` weeks from now
 		j.lastRun = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, now.Second(), now.Nanosecond(), j.location).
-			Add(time.Duration(now.Weekday()-j.weekDay) * Day).
+			Add(time.Duration(j.weekDay-now.Weekday()) * Day).
 			Add(j.atTime)
 
 		if j.lastRun.After(now) {
 			// this should be run for the first time this week
 			j.lastRun = j.lastRun.Add(-time.Duration(j.interval) * Week)
-		} else {
+		} else if j.lastRun.Before(now) {
 			// this should be run for the first time next week
 			j.lastRun = j.lastRun.Add(-time.Duration(j.interval-1) * Week)
 		}
@@ -147,7 +147,7 @@ func (j *Job) init(now time.Time) {
 		if j.lastRun.After(now) {
 			// this should be run for the first time today
 			j.lastRun = j.lastRun.Add(-time.Duration(j.interval) * Day)
-		} else {
+		} else if j.lastRun.Before(now) {
 			// this should be run for the first time tomorrow
 			j.lastRun = j.lastRun.Add(-time.Duration(j.interval-1) * Day)
 		}
