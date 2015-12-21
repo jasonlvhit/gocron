@@ -32,26 +32,6 @@ const (
 )
 
 // Job calculates the time intervals in which a task should be executed.
-//
-// A Note About Initialization
-//
-// Jobs are always run as if there first execution day, week, and time occured or will occur in the current week.
-// Note that a week starts on time.Sunday (go's iota value) and the time starts at "00:00".
-//
-// Lets take the following code for example:
-//  // ...
-//  sechduler.Every(3).Monday().At("05:00").Do(task)
-//  scheduler.Start()
-//
-// If `scheduler.Start()` is called any time before Monday at 5:00 am, the first time `task` is executed will be this Monday at 5:30 am.
-// The next time `task` will be called will be three weeks after that on Monday at 5:30 am
-//
-// However, if `scheduler.Start()` is called any time after Monday at 5:00 am, the first time `task` is executed will next Monday at 5:30 am.
-// The next time `task` will be called will be still be three weeks after that on Monday at 5:30 am
-//
-// The reason for this is in the event where a server is restarted multiple times within the specified interval
-// If there is other behavior desired, please open up an issue :) or send your use case to mark@dealyze.com
-//
 type Job struct {
 
 	// pause interval * unit bettween runs
@@ -125,31 +105,25 @@ func (j *Job) init(now time.Time) {
 
 	// create the lastRun time
 	if j.unit == Week {
-		// the lastRun time either occured `interval` weeks ago, so that its nextRun will come up some time this week
-		// or the lastRun occured this week already so that its nextRun will come up some time `interval` weeks from now
 		j.lastRun = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, now.Second(), now.Nanosecond(), j.location).
 			Add(time.Duration(j.weekDay-now.Weekday()) * Day).
 			Add(j.atTime)
 
-		if j.lastRun.After(now) {
-			// this should be run for the first time this week
-			j.lastRun = j.lastRun.Add(-time.Duration(j.interval) * Week)
-		} else if j.lastRun.Before(now) {
-			// this should be run for the first time next week
-			j.lastRun = j.lastRun.Add(-time.Duration(j.interval-1) * Week)
+		// the lastRun occured last week. This way, if a job is scheduled to occur weekly for tomorrow, it will start tomorrow.
+		// If a job is scheduled to occur every 3 weeks, the completion of this week will count as the first week.
+		if j.lastRun.After(now) || j.interval > 1 {
+			j.lastRun.Add(-1 * Week)
 		}
 
 	} else if j.unit == Day {
-		// the lastRun time either occured `interval` days ago, so that its nextRun will come up some time today
-		// or the lastRun occured today already so that its nextRun will come up some time `interval` days from now
-		j.lastRun = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, now.Second(), now.Nanosecond(), j.location).Add(j.atTime)
+		j.lastRun = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, now.Second(), now.Nanosecond(), j.location).
+			Add(j.atTime)
 
-		if j.lastRun.After(now) {
-			// this should be run for the first time today
-			j.lastRun = j.lastRun.Add(-time.Duration(j.interval) * Day)
-		} else if j.lastRun.Before(now) {
-			// this should be run for the first time tomorrow
-			j.lastRun = j.lastRun.Add(-time.Duration(j.interval-1) * Day)
+		// the lastRun occured yesterday. This way, if a job is scheduled to occur daily before the current time,
+		// then it will first occur today at that time. If a job is scheduled to occur every three days,
+		// the completion of today it will count today as the first day
+		if j.lastRun.After(now) || j.interval > 1 {
+			j.lastRun = j.lastRun.Add(-1 * Day)
 		}
 
 	} else {

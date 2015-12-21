@@ -27,7 +27,7 @@ type Scheduler interface {
 	Clear()
 
 	// Location sets the default location of every job created with `Every`.
-	// The deefault location is `time.Local`
+	// The default location is `time.Local`
 	Location(*time.Location)
 
 	// NextRun returns the next next job to be run and the time in which it will be run
