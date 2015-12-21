@@ -64,16 +64,20 @@ type Job struct {
 
 	// Specific day of the week to start on
 	startDay time.Weekday
+
+	onSchedule func() interface{}
+
+	userData interface{}
 }
 
 // Create a new job with the time interval.
 func NewJob(intervel uint64) *Job {
-	return &Job{intervel, "", "", "", time.Unix(0, 0), time.Unix(0, 0), 0, time.Sunday}
+	return &Job{interval: intervel, lastRun: time.Unix(0, 0)}
 }
 
 // True if the job should be run now
 func (j *Job) shouldRun() bool {
-	return time.Now().After(j.nextRun)
+	return time.Now().Sub(j.nextRun) < j.period
 }
 
 //Run the job and immdiately reschedulei it
@@ -161,27 +165,32 @@ func (j *Job) scheduleNextRun() {
 		}
 	}
 
-	if j.period != 0 {
-		// translate all the units to the Seconds
-		j.nextRun = j.lastRun.Add(j.period * time.Second)
-	} else {
+	if j.period == 0 {
 		switch j.unit {
 		case "minutes":
-			j.period = time.Duration(j.interval * 60)
-			break
+			j.period = time.Duration(j.interval) * time.Minute
+
 		case "hours":
-			j.period = time.Duration(j.interval * 60 * 60)
-			break
+			j.period = time.Duration(j.interval) * time.Hour
+
 		case "days":
-			j.period = time.Duration(j.interval * 60 * 60 * 24)
-			break
+			j.period = time.Duration(j.interval) * 24 * time.Hour
+
 		case "weeks":
-			j.period = time.Duration(j.interval * 60 * 60 * 24 * 7)
-			break
+			j.period = time.Duration(j.interval) * 24 * 7 * time.Hour
+
 		case "seconds":
-			j.period = time.Duration(j.interval)
+			j.period = time.Duration(j.interval) * time.Second
+
+		case "milliseconds":
+			j.period = time.Duration(j.interval) * time.Millisecond
 		}
-		j.nextRun = j.lastRun.Add(j.period * time.Second)
+	}
+
+	j.nextRun = j.lastRun.Add(j.period)
+
+	if j.onSchedule != nil {
+		j.userData = j.onSchedule()
 	}
 }
 
@@ -199,6 +208,12 @@ func (j *Job) Second() (job *Job) {
 // Set the unit with seconds
 func (j *Job) Seconds() (job *Job) {
 	j.unit = "seconds"
+	return j
+}
+
+// Set the unit with milliseconds
+func (j *Job) Milliseconds() (job *Job) {
+	j.unit = "milliseconds"
 	return j
 }
 
