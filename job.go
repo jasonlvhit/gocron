@@ -109,9 +109,8 @@ func (j *Job) init(now time.Time) {
 			Add(time.Duration(j.weekDay-now.Weekday()) * Day).
 			Add(j.atTime)
 
-		// the lastRun occured last week. This way, if a job is scheduled to occur weekly for tomorrow, it will start tomorrow.
-		// If a job is scheduled to occur every 3 weeks, the completion of this week will count as the first week.
-		if j.lastRun.After(now) || j.interval > 1 {
+		// the lastRun occured last week. This way, if a job is scheduled to occur weekly for tomorrow, it will run tomorrow.
+		if j.lastRun.After(now) {
 			j.lastRun.Add(-1 * Week)
 		}
 
@@ -120,9 +119,8 @@ func (j *Job) init(now time.Time) {
 			Add(j.atTime)
 
 		// the lastRun occured yesterday. This way, if a job is scheduled to occur daily before the current time,
-		// then it will first occur today at that time. If a job is scheduled to occur every three days,
-		// the completion of today it will count today as the first day
-		if j.lastRun.After(now) || j.interval > 1 {
+		// then it will run today at that time
+		if j.lastRun.After(now) {
 			j.lastRun = j.lastRun.Add(-1 * Day)
 		}
 

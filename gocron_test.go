@@ -23,25 +23,33 @@ func TestJob(t *testing.T) {
 
 	s.Title("Day")
 
-	s.Assert("`Job.Every(...).Day().At(...)` set to the future", func(log sugar.Log) bool {
+	s.Assert("`Job.Every(...).Day().At(...)`", func(log sugar.Log) bool {
 		// try this with 20 random day intervals
 		for i := 20; i > 0; i-- {
 
-			// get a random interval of days [1, 356]
+			// get a random interval of days [1, 5]
 			rand.Seed(time.Now().UnixNano())
-			interval := 1 + uint64(rand.Int())%356
+			interval := 1 + uint64(rand.Int())%6
 
 			// create and init the job
 			job := newJob(interval).Day().At(aMinuteFromNowAtTime)
 			job.init(today)
 
-			// jobs last run ahould be`daysInterval` ago
-			aMinuteFromNowIntervalDaysAgo := aMinuteFromNow.Add(-1 * Day * time.Duration(interval))
-			if !job.lastRun.Equal(aMinuteFromNowIntervalDaysAgo) {
-				log("the lastRun did not occur %d days ago", interval)
-				log(job.lastRun, aMinuteFromNowIntervalDaysAgo)
+			// jobs last run should be `interval` days from now
+			aMinuteFromNowIntervalDaysFromnow := aMinuteFromNow
+			if !job.lastRun.Equal(aMinuteFromNow) {
+				log("the lastRun did not occur a minute from now days ago")
+				log(job.lastRun, aMinuteFromNowIntervalDaysFromnow)
 				return false
 			}
+			//
+			// // jobs last run should be `interval` days from now
+			// aMinuteAgoIntervalDaysAgo := aMinuteAgo.Add(-1 * Day * time.Duration(interval))
+			// if !job.lastRun.Equal(aMinuteAgoIntervalDaysAgo) {
+			// 	log("the lastRun did not occur %d days ago", interval)
+			// 	log(job.lastRun, aMinuteFromNowIntervalDaysAgo)
+			// 	return false
+			// }
 
 			// jobs next run is should be today
 			if !job.nextRun.Equal(aMinuteFromNow) {
@@ -68,9 +76,9 @@ func TestJob(t *testing.T) {
 		// try this with 20 random day intervals
 		for i := 20; i > 0; i-- {
 
-			// get a random interval of days [1, 365]
+			// get a random interval of days [1, 5]
 			rand.Seed(time.Now().UnixNano())
-			interval := 1 + uint64(rand.Int())%356
+			interval := 1 + uint64(rand.Int())%5
 
 			// create and init the job
 			job := newJob(interval).Day().At(aMinuteAgoAtTime)
