@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/jasonlvhit/gocron.png?label=ready&title=Ready)](https://waffle.io/jasonlvhit/gocron)
 ## goCron: A Golang Job Scheduling Package.
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](http://godoc.org/github.com/jasonlvhit/gocron)
 [![Stories in Ready](https://badge.waffle.io/jasonlvhit/gocron.png?label=ready&title=Ready)](https://waffle.io/jasonlvhit/gocron)
