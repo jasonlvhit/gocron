@@ -67,9 +67,9 @@ type Job struct {
 }
 
 // Create a new job with the time interval.
-func NewJob(intervel uint64) *Job {
+func NewJob(interval uint64) *Job {
 	return &Job{
-		intervel,
+		interval,
 		"", "", "",
 		time.Unix(0, 0),
 		time.Unix(0, 0), 0,
