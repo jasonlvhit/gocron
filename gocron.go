@@ -40,9 +40,6 @@ func ChangeLoc(newLocation *time.Location) {
 	defaultScheduler.ChangeLoc(newLocation)
 }
 
-// MAXJOBNUM max number of jobs, hack it if you need.
-const MAXJOBNUM = 10000
-
 const (
 	seconds = "seconds"
 	minutes = "minutes"
@@ -463,7 +460,7 @@ func (j *Job) Lock() *Job {
 // Scheduler struct, the only data member is the list of jobs.
 // - implements the sort.Interface{} for sorting jobs, by the time nextRun
 type Scheduler struct {
-	jobs [MAXJOBNUM]*Job // Array store jobs
+	jobs []*Job          // slice to store jobs
 	size int             // Size of jobs which jobs holding.
 	loc  *time.Location  // Location to use when scheduling jobs with specified times
 }
@@ -474,7 +471,7 @@ func (s *Scheduler) Jobs() []*Job {
 }
 
 func (s *Scheduler) Len() int {
-	return s.size
+	return len(s.jobs)
 }
 
 func (s *Scheduler) Swap(i, j int) {
@@ -488,8 +485,6 @@ func (s *Scheduler) Less(i, j int) bool {
 // NewScheduler creates a new scheduler
 func NewScheduler() *Scheduler {
 	return &Scheduler{
-		jobs: [MAXJOBNUM]*Job{},
-		size: 0,
 		loc:  loc,
 	}
 }
@@ -500,14 +495,12 @@ func (s *Scheduler) ChangeLoc(newLocation *time.Location) {
 }
 
 // Get the current runnable jobs, which shouldRun is True
-func (s *Scheduler) getRunnableJobs() (runningJobs [MAXJOBNUM]*Job, n int) {
-	runnableJobs := [MAXJOBNUM]*Job{}
-	n = 0
+func (s *Scheduler) getRunnableJobs() (running_jobs []*Job, n int) {
+	runnableJobs := []*Job{}
 	sort.Sort(s)
-	for i := 0; i < s.size; i++ {
-		if s.jobs[i].shouldRun() {
-			runnableJobs[n] = s.jobs[i]
-			n++
+	for _, job := range s.jobs {
+		if job.shouldRun() {
+			runnableJobs = append(runnableJobs, job)
 		} else {
 			break
 		}
@@ -517,7 +510,7 @@ func (s *Scheduler) getRunnableJobs() (runningJobs [MAXJOBNUM]*Job, n int) {
 
 // NextRun datetime when the next job should run.
 func (s *Scheduler) NextRun() (*Job, time.Time) {
-	if s.size <= 0 {
+	if len(s.jobs) <= 0 {
 		return nil, time.Now()
 	}
 	sort.Sort(s)
@@ -527,8 +520,7 @@ func (s *Scheduler) NextRun() (*Job, time.Time) {
 // Every schedule a new periodic job with interval
 func (s *Scheduler) Every(interval uint64) *Job {
 	job := NewJob(interval).Loc(s.loc)
-	s.jobs[s.size] = job
-	s.size++
+	s.jobs = append(s.jobs, job)
 	return job
 }
 
@@ -550,9 +542,9 @@ func (s *Scheduler) RunAll() {
 
 // RunAllwithDelay runs all jobs with delay seconds
 func (s *Scheduler) RunAllwithDelay(d int) {
-	for i := 0; i < s.size; i++ {
-		s.jobs[i].run()
-		if 0 != d {
+	for _, job := range s.jobs {
+		job.run()
+		if d != 0 {
 			time.Sleep(time.Duration(d))
 		}
 	}
@@ -579,23 +571,19 @@ func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
 	for {
 		found := false
 
-		for ; i < s.size; i++ {
-			if shouldRemove(s.jobs[i]) {
+		for x, job := range s.jobs {
+			if shouldRemove(job) {
 				found = true
+				i = x
 				break
 			}
 		}
 
-		if !found {
+		if found {
 			return
 		}
 
-		for j := (i + 1); j < s.size; j++ {
-			s.jobs[i] = s.jobs[j]
-			i++
-		}
-		s.size--
-		s.jobs[s.size] = nil
+		s.jobs = append(s.jobs[:i], s.jobs[i+1:]...)
 	}
 }
 
@@ -611,10 +599,7 @@ func (s *Scheduler) Scheduled(j interface{}) bool {
 
 // Clear delete all scheduled jobs
 func (s *Scheduler) Clear() {
-	for i := 0; i < s.size; i++ {
-		s.jobs[i] = nil
-	}
-	s.size = 0
+	s.jobs = []*Job{}
 }
 
 // Start all the pending jobs
