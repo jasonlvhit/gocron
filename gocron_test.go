@@ -2,9 +2,9 @@
 package gocron
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 var err = 1
