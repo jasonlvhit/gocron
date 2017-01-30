@@ -1,6 +1,7 @@
 ## goCron: A Golang Job Scheduling Package.
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](http://godoc.org/github.com/jasonlvhit/gocron)
 [![Stories in Ready](https://badge.waffle.io/jasonlvhit/gocron.png?label=ready&title=Ready)](https://waffle.io/jasonlvhit/gocron)
+[![Go Report Card](https://goreportcard.com/badge/github.com/nikmahes/gocron)](https://goreportcard.com/report/github.com/nikmahes/gocron)
 
 goCron is a Golang job scheduling package which lets you run Go functions periodically at pre-determined interval using a simple, human-friendly syntax.
 
