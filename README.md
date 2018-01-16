@@ -52,6 +52,8 @@ func main() {
 
         // function At() take a string like 'hour:min:sec' ->Add your time here
         gocron.Every(1).Day().Zone("EST").At("12:34:37").Do(task1)
+	// Zone() will handle daylight savings if CST6CDT is used instead of CST.
+	gocron.Every(1).Day().Zone("CST6CDT").At("12:34:37").Do(task1) 
         gocron.Every(1).Monday().At("18:30:00").Do(task)
 
 	// remove, clear and next_run
