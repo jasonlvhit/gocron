@@ -66,6 +66,7 @@ type Job struct {
 	startDay time.Weekday               // Specific day of the week to start on
 	funcs    map[string]interface{}     // Map for the function task store
 	fparams  map[string]([]interface{}) // Map for function and  params of function
+	err      error
 }
 
 // NewJob creates a new job with the time interval.
@@ -124,6 +125,11 @@ func getFunctionName(fn interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf((fn)).Pointer()).Name()
 }
 
+// Err should be checked to ensure an error didn't occur creating the job
+func (j *Job) Err() error {
+	return j.err
+}
+
 // Do specifies the jobFunc that should be called every time the job runs
 func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	typ := reflect.TypeOf(jobFun)
@@ -169,14 +175,15 @@ func formatTime(t string) (int, int, error) {
 // At schedules job at specific time of day
 // s.Every(1).Day().At("10:30").Do(task)
 // s.Every(1).Monday().At("10:30").Do(task)
-func (j *Job) At(t string) (*Job, error) {
+func (j *Job) At(t string) *Job {
 	hour, min, err := formatTime(t)
 	if err != nil {
-		return j, err
+		j.err = err
+		return j
 	}
 	// save atTime start as duration from midnight
 	j.atTime = time.Duration(hour)*time.Hour + time.Duration(min)*time.Minute
-	return j, nil
+	return j
 }
 
 func (j *Job) periodDuration() (time.Duration, error) {

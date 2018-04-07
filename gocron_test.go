@@ -114,8 +114,8 @@ func TestTaskAt(t *testing.T) {
 
 	// Schedule every day At
 	startAt := fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute()+1)
-	dayJob, err := s.Every(1).Day().At(startAt)
-	if err != nil {
+	dayJob := s.Every(1).Day().At(startAt)
+	if err := dayJob.Err(); err != nil {
 		t.Error(err)
 	}
 
@@ -171,10 +171,11 @@ func TestDaily(t *testing.T) {
 	hour := now.Hour() - 2
 	minute := now.Minute()
 	startAt := fmt.Sprintf("%02d:%02d", hour, minute)
-	dayJob, err := s.Every(1).Day().At(startAt)
-	if err != nil {
+	dayJob = s.Every(1).Day().At(startAt)
+	if err := dayJob.Err(); err != nil {
 		t.Error(err)
 	}
+
 	dayJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
 	assertEqualTime(t, dayJob.nextRun, exp)
@@ -267,38 +268,40 @@ func TestWeekdayAt(t *testing.T) {
 
 	// Schedule job at next week day
 	var weekJob *Job
-	var err error
 	switch now.Weekday() {
 	case time.Monday:
-		weekJob, err = s.Every(1).Tuesday().At(startAt)
-		if err != nil {
+		weekJob = s.Every(1).Tuesday().At(startAt)
+		if err := weekJob.Err(); err != nil {
 			t.Error(err)
 		}
 	case time.Tuesday:
-		weekJob, err = s.Every(1).Wednesday().At(startAt)
+		weekJob = s.Every(1).Wednesday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	case time.Wednesday:
-		weekJob, err = s.Every(1).Thursday().At(startAt)
-		if err != nil {
+		weekJob = s.Every(1).Thursday().At(startAt)
+		if err := weekJob.Err(); err != nil {
 			t.Error(err)
 		}
 	case time.Thursday:
-		weekJob, err = s.Every(1).Friday().At(startAt)
-		if err != nil {
+		weekJob = s.Every(1).Friday().At(startAt)
+		if err := weekJob.Err(); err != nil {
 			t.Error(err)
 		}
 	case time.Friday:
-		weekJob, err = s.Every(1).Saturday().At(startAt)
-		if err != nil {
+		weekJob = s.Every(1).Saturday().At(startAt)
+		if err := weekJob.Err(); err != nil {
 			t.Error(err)
 		}
 	case time.Saturday:
-		weekJob, err = s.Every(1).Sunday().At(startAt)
-		if err != nil {
+		weekJob = s.Every(1).Sunday().At(startAt)
+		if err := weekJob.Err(); err != nil {
 			t.Error(err)
 		}
 	case time.Sunday:
-		weekJob, err = s.Every(1).Monday().At(startAt)
-		if err != nil {
+		weekJob = s.Every(1).Monday().At(startAt)
+		if err := weekJob.Err(); err != nil {
 			t.Error(err)
 		}
 	}
