@@ -132,6 +132,10 @@ func (j *Job) Err() error {
 
 // Do specifies the jobFunc that should be called every time the job runs
 func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
+	if j.err != nil {
+		return j.err
+	}
+
 	typ := reflect.TypeOf(jobFun)
 	if typ.Kind() != reflect.Func {
 		return ErrNotAFunction

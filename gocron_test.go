@@ -14,9 +14,9 @@ func taskWithParams(a int, b string) {
 	fmt.Println(a, b)
 }
 
-func assertEqualTime(t *testing.T, actual, expected time.Time) {
+func assertEqualTime(name string, t *testing.T, actual, expected time.Time) {
 	if actual != expected {
-		t.Errorf("actual different than expected want: %v -> got: %v", expected, actual)
+		t.Errorf("test name: %s actual different than expected want: %v -> got: %v", name, expected, actual)
 	}
 }
 
@@ -130,7 +130,7 @@ func TestTaskAt(t *testing.T) {
 
 	// Check first run
 	nextRun := dayJob.NextScheduledTime()
-	assertEqualTime(t, nextRun, startTime)
+	assertEqualTime("first run", t, nextRun, startTime)
 
 	sStop := s.Start()      // Start scheduler
 	<-dayJobDone            // Wait job done
@@ -139,7 +139,7 @@ func TestTaskAt(t *testing.T) {
 
 	// Check next run
 	nextRun = dayJob.NextScheduledTime()
-	assertEqualTime(t, nextRun, startNext)
+	assertEqualTime("next run", t, nextRun, startNext)
 }
 
 func TestDaily(t *testing.T) {
@@ -152,20 +152,20 @@ func TestDaily(t *testing.T) {
 	dayJob := s.Every(1).Day()
 	dayJob.scheduleNextRun()
 	exp := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
-	assertEqualTime(t, dayJob.nextRun, exp)
+	assertEqualTime("1 day", t, dayJob.nextRun, exp)
 
 	// schedule next run 2 days
 	dayJob = s.Every(2).Days()
 	dayJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+2, 0, 0, 0, 0, loc)
-	assertEqualTime(t, dayJob.nextRun, exp)
+	assertEqualTime("2 days", t, dayJob.nextRun, exp)
 
 	// Job running longer than next schedule 1day 2 hours
 	dayJob = s.Every(1).Day()
 	dayJob.lastRun = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()+2, 0, 0, 0, loc)
 	dayJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
-	assertEqualTime(t, dayJob.nextRun, exp)
+	assertEqualTime("1 day 2 hours", t, dayJob.nextRun, exp)
 
 	// At() 2 hours before now
 	hour := now.Hour() - 2
@@ -178,7 +178,7 @@ func TestDaily(t *testing.T) {
 
 	dayJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
-	assertEqualTime(t, dayJob.nextRun, exp)
+	assertEqualTime("at 2 hours before now", t, dayJob.nextRun, exp)
 }
 
 func TestWeekdayAfterToday(t *testing.T) {
@@ -209,14 +209,14 @@ func TestWeekdayAfterToday(t *testing.T) {
 	// First run
 	weekJob.scheduleNextRun()
 	exp := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
-	assertEqualTime(t, weekJob.nextRun, exp)
+	assertEqualTime("first run", t, weekJob.nextRun, exp)
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
 	weekJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
-	assertEqualTime(t, weekJob.nextRun, exp)
+	assertEqualTime("next run", t, weekJob.nextRun, exp)
 }
 
 func TestWeekdayBeforeToday(t *testing.T) {
@@ -246,14 +246,14 @@ func TestWeekdayBeforeToday(t *testing.T) {
 
 	weekJob.scheduleNextRun()
 	exp := time.Date(now.Year(), now.Month(), now.Day()+6, 0, 0, 0, 0, loc)
-	assertEqualTime(t, weekJob.nextRun, exp)
+	assertEqualTime("first run", t, weekJob.nextRun, exp)
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
 	weekJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+6, 0, 0, 0, 0, loc)
-	assertEqualTime(t, weekJob.nextRun, exp)
+	assertEqualTime("nest run", t, weekJob.nextRun, exp)
 }
 
 func TestWeekdayAt(t *testing.T) {
@@ -309,12 +309,12 @@ func TestWeekdayAt(t *testing.T) {
 	// First run
 	weekJob.scheduleNextRun()
 	exp := time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
-	assertEqualTime(t, weekJob.nextRun, exp)
+	assertEqualTime("first run", t, weekJob.nextRun, exp)
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
 	weekJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
-	assertEqualTime(t, weekJob.nextRun, exp)
+	assertEqualTime("next run", t, weekJob.nextRun, exp)
 }
