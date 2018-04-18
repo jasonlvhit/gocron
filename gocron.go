@@ -67,6 +67,7 @@ type Job struct {
 	funcs    map[string]interface{}     // Map for the function task store
 	fparams  map[string]([]interface{}) // Map for function and  params of function
 	err      error
+	shouldDo bool // indicates that jobs should start before scheduling
 }
 
 // NewJob creates a new job with the time interval.
@@ -93,7 +94,7 @@ func (j *Job) shouldRun() bool {
 	return b
 }
 
-// Run the job and immdiately reschedulei it
+// Run the job and immdiately reschedule it
 func (j *Job) run() ([]reflect.Value, error) {
 	f := reflect.ValueOf(j.funcs[j.jobFunc])
 	params := j.fparams[j.jobFunc]
@@ -101,21 +102,27 @@ func (j *Job) run() ([]reflect.Value, error) {
 		return nil, ErrParamsNotAdapted
 	}
 
-	in := make([]reflect.Value, len(params))
-	for k, param := range params {
-		// should check for nil items to avoid a panic
-		if param == nil {
-			return nil, ErrParameterCannotBeNil
+	var result []reflect.Value
+	if j.shouldDo {
+		in := make([]reflect.Value, len(params))
+		for k, param := range params {
+			// should check for nil items to avoid a panic
+			if param == nil {
+				return nil, ErrParameterCannotBeNil
+			}
+			in[k] = reflect.ValueOf(param)
 		}
-		in[k] = reflect.ValueOf(param)
+		result = f.Call(in)
 	}
-	result := f.Call(in)
 
 	j.mu.Lock()
 	j.lastRun = time.Now()
 	j.mu.Unlock()
 
-	j.scheduleNextRun()
+	err := j.scheduleNextRun()
+	if err != nil {
+		return result, err
+	}
 
 	return result, nil
 }
@@ -243,12 +250,14 @@ func (j *Job) scheduleNextRun() error {
 		j.mu.Unlock()
 	}
 
+	period, err := j.periodDuration()
+	if err != nil {
+		return err
+	}
+
 	// advance to next possible schedule
 	for j.nextRun.Before(now) || j.nextRun.Before(j.lastRun) {
-		period, err := j.periodDuration()
-		if err != nil {
-			return err
-		}
+		j.shouldDo = true
 		j.mu.Lock()
 		j.nextRun = j.nextRun.Add(period)
 		j.mu.Unlock()
@@ -429,8 +438,9 @@ func (s *Scheduler) NextRun() (*Job, time.Time) {
 }
 
 // Every schedule a new periodic job with interval
-func (s *Scheduler) Every(interval uint64) *Job {
+func (s *Scheduler) Every(interval uint64, startImmediately bool) *Job {
 	job := NewJob(interval)
+	job.shouldDo = startImmediately
 	s.mu.Lock()
 	s.jobs = append(s.jobs, job)
 	s.mu.Unlock()
@@ -507,20 +517,19 @@ func (s *Scheduler) Clear() {
 // Add seconds ticker
 func (s *Scheduler) Start() chan bool {
 	stopped := make(chan bool, 1)
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
 
 	go func() {
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
 				err := s.RunPending()
 				if err != nil {
 					s.err = err
-					ticker.Stop()
 					return
 				}
 			case <-stopped:
-				ticker.Stop()
 				return
 			}
 		}
@@ -535,7 +544,7 @@ var defaultScheduler = NewScheduler()
 
 // Every schedules a new periodic job running in specific interval
 func Every(interval uint64) *Job {
-	return defaultScheduler.Every(interval)
+	return defaultScheduler.Every(interval, false)
 }
 
 // RunPending run all jobs that are scheduled to run
