@@ -589,3 +589,8 @@ func Remove(j interface{}) {
 func NextRun() (job *Job, time time.Time) {
 	return defaultScheduler.NextRun()
 }
+
+// Len gets the amount of jobs in the scheduler
+func Len() int {
+	return defaultScheduler.Len()
+}
