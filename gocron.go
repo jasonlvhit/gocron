@@ -286,75 +286,56 @@ func (j *Job) Days() *Job {
 	return j
 }
 
-// s.Every(1).Monday().Do(task)
-// Set the start day with Monday
-func (j *Job) Monday() (job *Job) {
+func (j *Job) On(day time.Weekday) (job *Job) {
 	if j.interval != 1 {
 		panic("")
 	}
-	j.startDay = 1
+	j.startDay = day
 	job = j.Weeks()
 	return
+}
+
+// s.Every(1).Monday().Do(task)
+// Set the start day with Monday
+func (j *Job) Monday() *Job {
+	j.On(1)
+	return j
 }
 
 // Set the start day with Tuesday
-func (j *Job) Tuesday() (job *Job) {
-	if j.interval != 1 {
-		panic("")
-	}
-	j.startDay = 2
-	job = j.Weeks()
-	return
+func (j *Job) Tuesday() *Job {
+	j.On(2)
+	return j
 }
 
 // Set the start day woth Wednesday
-func (j *Job) Wednesday() (job *Job) {
-	if j.interval != 1 {
-		panic("")
-	}
-	j.startDay = 3
-	job = j.Weeks()
-	return
+func (j *Job) Wednesday() *Job {
+	j.On(3)
+	return j
 }
 
 // Set the start day with thursday
-func (j *Job) Thursday() (job *Job) {
-	if j.interval != 1 {
-		panic("")
-	}
-	j.startDay = 4
-	job = j.Weeks()
-	return
+func (j *Job) Thursday() *Job {
+	j.On(4)
+	return j
 }
 
 // Set the start day with friday
-func (j *Job) Friday() (job *Job) {
-	if j.interval != 1 {
-		panic("")
-	}
-	j.startDay = 5
-	job = j.Weeks()
-	return
+func (j *Job) Friday() *Job {
+	j.On(5)
+	return j
 }
 
 // Set the start day with saturday
-func (j *Job) Saturday() (job *Job) {
-	if j.interval != 1 {
-		panic("")
-	}
-	j.startDay = 6
-	job = j.Weeks()
-	return
+func (j *Job) Saturday() *Job {
+	j.On(6)
+	return j
 }
 
 // Set the start day with sunday
-func (j *Job) Sunday() (job *Job) {
-	if j.interval != 1 {
-		panic("")
-	}
-	j.startDay = 0
-	job = j.Weeks()
-	return
+func (j *Job) Sunday() *Job {
+	j.On(0)
+	return j
 }
 
 //Set the units as weeks

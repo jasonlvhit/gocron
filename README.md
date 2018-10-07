@@ -17,6 +17,8 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/jasonlvhit/gocron"
 )
 
@@ -45,6 +47,9 @@ func main() {
 	// Do jobs on specific weekday
 	gocron.Every(1).Monday().Do(task)
 	gocron.Every(1).Thursday().Do(task)
+
+	gocron.Every(1).On(time.Monday).Do(task)
+	gocron.Every(1).On(time.Thursday).Do(task)
 
 	// function At() take a string like 'hour:min'
 	gocron.Every(1).Day().At("10:30").Do(task)
