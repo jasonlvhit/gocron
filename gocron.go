@@ -230,11 +230,13 @@ func (j *Job) scheduleNextRun() error {
 
 	switch j.unit {
 	case days:
+		j.shouldDo = true
 		j.mu.Lock()
 		j.nextRun = j.roundToMidnight(j.lastRun)
 		j.nextRun = j.nextRun.Add(j.atTime)
 		j.mu.Unlock()
 	case weeks:
+		j.shouldDo = true
 		j.mu.Lock()
 		j.nextRun = j.roundToMidnight(j.lastRun)
 		dayDiff := int(j.startDay)
