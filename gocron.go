@@ -66,10 +66,12 @@ type Job struct {
 
 	// Map for function and  params of function
 	fparams map[string]([]interface{})
+
+	jobid string
 }
 
 // Create a new job with the time interval.
-func NewJob(intervel uint64) *Job {
+func NewJob(intervel uint64,id string) *Job {
 	return &Job{
 		intervel,
 		"", "", "",
@@ -77,7 +79,7 @@ func NewJob(intervel uint64) *Job {
 		time.Unix(0, 0), 0,
 		time.Sunday,
 		make(map[string]interface{}),
-		make(map[string]([]interface{})),
+		make(map[string]([]interface{})),id,
 	}
 }
 
@@ -419,8 +421,8 @@ func (s *Scheduler) NextRun() (*Job, time.Time) {
 }
 
 // Schedule a new periodic job
-func (s *Scheduler) Every(interval uint64) *Job {
-	job := NewJob(interval)
+func (s *Scheduler) Every(interval uint64,id string) *Job {
+	job := NewJob(interval,id)
 	s.jobs[s.size] = job
 	s.size++
 	return job
@@ -453,10 +455,10 @@ func (s *Scheduler) RunAllwithDelay(d int) {
 }
 
 // Remove specific job j
-func (s *Scheduler) Remove(j interface{}) {
+func (s *Scheduler) Remove(j interface{},jobid string) {
 	i := 0
 	for ; i < s.size; i++ {
-		if s.jobs[i].jobFunc == getFunctionName(j) {
+		if s.jobs[i].jobFunc == getFunctionName(j) && s.jobs[i].jobid==jobid {
 			break
 		}
 	}
@@ -503,8 +505,8 @@ var defaultScheduler = NewScheduler()
 var jobs = defaultScheduler.jobs
 
 // Schedule a new periodic job
-func Every(interval uint64) *Job {
-	return defaultScheduler.Every(interval)
+func Every(interval uint64,id string) *Job {
+	return defaultScheduler.Every(interval,id)
 }
 
 // Run all jobs that are scheduled to run
@@ -543,8 +545,8 @@ func Clear() {
 }
 
 // Remove
-func Remove(j interface{}) {
-	defaultScheduler.Remove(j)
+func Remove(j interface{},jobid string) {
+	defaultScheduler.Remove(j,jobid)
 }
 
 // NextRun gets the next running time
