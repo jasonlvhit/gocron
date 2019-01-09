@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/jasonlvhit/gocron"
 )
 
 // Time location, default set by the time.Local (*time.Location)
@@ -68,6 +69,8 @@ type Job struct {
 	fparams map[string]([]interface{})
 
 	jobid string
+
+	schedule map[string]interface{}
 }
 
 // Create a new job with the time interval.
@@ -80,12 +83,33 @@ func NewJob(intervel uint64,id string) *Job {
 		time.Sunday,
 		make(map[string]interface{}),
 		make(map[string]([]interface{})),id,
+		scheduler_function(intervel,id),
 	}
 }
 
 // True if the job should be run now
 func (j *Job) shouldRun() bool {
 	return time.Now().After(j.nextRun)
+}
+
+func scheduler_function(intervel uint64,jobid string)(map[string]interface{}){
+	schedule_map:=make(map[string]interface{})
+	schedule_map["second"]=gocron.Every(1,jobid).Second()
+	schedule_map["seconds"]=gocron.Every(intervel,jobid).Seconds()
+	schedule_map["minute"]=gocron.Every(1,jobid).Minute()
+	schedule_map["minutes"]=gocron.Every(intervel,jobid).Minutes()
+	schedule_map["hour"]=gocron.Every(1,jobid).Hour()
+	schedule_map["hours"]=gocron.Every(intervel,jobid).Hours()
+	schedule_map["day"]=gocron.Every(1,jobid).Day()
+	schedule_map["days"]=gocron.Every(intervel,jobid).Days()
+	schedule_map["everymonday"]=gocron.Every(1,jobid).Monday()
+	schedule_map["everytuesday"]=gocron.Every(1,jobid).Tuesday()
+	schedule_map["everywednesday"]=gocron.Every(1,jobid).Wednesday()
+	schedule_map["everythursday"]=gocron.Every(1,jobid).Thursday()
+	schedule_map["everyfriday"]=gocron.Every(1,jobid).Friday()
+	schedule_map["everysaturday"]=gocron.Every(1,jobid).Saturday()
+	schedule_map["everysunday"]=gocron.Every(1,jobid).Sunday()
+	return schedule_map
 }
 
 //Run the job and immediately reschedule it
