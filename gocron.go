@@ -466,7 +466,7 @@ func (s *Scheduler) Remove(j interface{},jobid string)(bool) {
 	res:=false
 	for ; i < s.size; i++ {
 		if s.jobs[i].jobFunc == getFunctionName(j) && s.jobs[i].jobid==jobid {
-			res=false
+			res=true
 			break
 		}
 	}
