@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	//"github.com/jasonlvhit/gocron"
 )
 
 // Time location, default set by the time.Local (*time.Location)
@@ -69,6 +71,7 @@ type Job struct {
 
 	jobid string
 
+
 }
 
 // Create a new job with the time interval.
@@ -81,6 +84,7 @@ func NewJob(intervel uint64,id string) *Job {
 		time.Sunday,
 		make(map[string]interface{}),
 		make(map[string]([]interface{})),id,
+
 	}
 }
 
@@ -88,6 +92,7 @@ func NewJob(intervel uint64,id string) *Job {
 func (j *Job) shouldRun() bool {
 	return time.Now().After(j.nextRun)
 }
+
 
 //Run the job and immediately reschedule it
 func (j *Job) run() (result []reflect.Value, err error) {
