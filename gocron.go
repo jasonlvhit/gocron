@@ -475,7 +475,9 @@ func (s *Scheduler) Remove(j interface{},jobid string)(bool) {
 		s.jobs[i] = s.jobs[j]
 		i++
 	}
+	if res==true{
 	s.size = s.size - 1
+}
 	return res
 }
 
