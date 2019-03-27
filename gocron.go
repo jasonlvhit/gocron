@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -88,12 +90,12 @@ func (j *Job) shouldRun() bool {
 	return time.Now().After(j.nextRun)
 }
 
-//Run the job and immdiately reschedulei it
+//Run the job and immediately reschedule it
 func (j *Job) run() (result []reflect.Value, err error) {
 	f := reflect.ValueOf(j.funcs[j.jobFunc])
 	params := j.fparams[j.jobFunc]
 	if len(params) != f.Type().NumIn() {
-		err = errors.New("The number of param is not adapted.")
+		err = errors.New("the number of param is not adapted")
 		return
 	}
 	in := make([]reflect.Value, len(params))
@@ -106,7 +108,7 @@ func (j *Job) run() (result []reflect.Value, err error) {
 	return
 }
 
-// for given function fn , get the name of funciton.
+// for given function fn, get the name of function.
 func getFunctionName(fn interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf((fn)).Pointer()).Name()
 }
@@ -127,15 +129,41 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) {
 	j.scheduleNextRun()
 }
 
+func formatTime(t string) (hour, min int, err error) {
+	var er = errors.New("time format error")
+	ts := strings.Split(t, ":")
+	if len(ts) != 2 {
+		err = er
+		return
+	}
+
+	hour, err = strconv.Atoi(ts[0])
+	if err != nil {
+		return
+	}
+	min, err = strconv.Atoi(ts[1])
+	if err != nil {
+		return
+	}
+	sec, err = strconv.Atoi(ts[2])
+	if err != nil {
+		return
+	}
+	if hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59 {
+		err = er
+		return 
+	}
+	return hour, min, nil
+}
+
 //	s.Every(1).Day().At("10:30").Do(task)
 //	s.Every(1).Monday().At("10:30").Do(task)
 func (j *Job) At(t string) *Job {
-	hour := int((t[0]-'0')*10 + (t[1] - '0'))
-	min := int((t[3]-'0')*10 + (t[4] - '0'))
-	sec := int((t[6]-'0')*10 + (t[7] - '0'))
-	if hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59 {
-		panic("time format error.")
+	hour, min, err := formatTime(t)
+	if err != nil {
+		panic(err)
 	}
+
 	// time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 	mock := time.Date(time.Now().In(j.timeZone).Year(), time.Now().In(j.timeZone).Month(), time.Now().In(j.timeZone).Day(), int(hour), int(min), int(sec), 0, j.timeZone)
 
@@ -146,7 +174,7 @@ func (j *Job) At(t string) *Job {
 			j.lastRun = time.Date(time.Now().In(j.timeZone).AddDate(0, 0, -1).Year(), time.Now().In(j.timeZone).AddDate(0, 0, -1).Month(), time.Now().In(j.timeZone).AddDate(0, 0, -1).Day(), hour, min, sec, 0, j.timeZone)
 		}
 	} else if j.unit == "weeks" {
-		if time.Now().After(mock) {
+		if j.startDay != time.Now().Weekday() || (time.Now().After(mock) && j.startDay == time.Now().Weekday()) {
 			i := mock.Weekday() - j.startDay
 			if i < 0 {
 				i = 7 + i
@@ -198,6 +226,11 @@ func (j *Job) scheduleNextRun() {
 	}
 }
 
+// NextScheduledTime returns the time of when this job is to run next
+func (j *Job) NextScheduledTime() time.Time {
+	return j.nextRun
+}
+
 // Set timezone for timer
 func (j *Job) Zone(timeZone string) *Job {
 	recivedTimeZone, err := time.LoadLocation(timeZone)
@@ -207,7 +240,7 @@ func (j *Job) Zone(timeZone string) *Job {
 	j.timeZone = recivedTimeZone
 	return j
 }
-
+  
 // the follow functions set the job's unit with seconds,minutes,hours...
 
 // Set the unit with second
@@ -269,18 +302,6 @@ func (j *Job) Days() *Job {
 	j.unit = "days"
 	return j
 }
-
-/*
-// Set the unit with week, which the interval is 1
-func (j *Job) Week() (job *Job) {
-	if j.interval != 1 {
-		panic("")
-	}
-	job = j.Weeks()
-	return
-}
-
-*/
 
 // s.Every(1).Monday().Do(task)
 // Set the start day with Monday
@@ -451,10 +472,17 @@ func (s *Scheduler) RunAllwithDelay(d int) {
 // Remove specific job j
 func (s *Scheduler) Remove(j interface{}) {
 	i := 0
+	found := false
+
 	for ; i < s.size; i++ {
 		if s.jobs[i].jobFunc == getFunctionName(j) {
+			found = true
 			break
 		}
+	}
+
+	if !found {
+		return
 	}
 
 	for j := (i + 1); j < s.size; j++ {
