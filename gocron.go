@@ -66,6 +66,9 @@ type Job struct {
 
 	// Map for function and  params of function
 	fparams map[string]([]interface{})
+
+	//diff time zone for each timer
+	timeZone *time.Location
 }
 
 // Create a new job with the time interval.
@@ -78,6 +81,7 @@ func NewJob(intervel uint64) *Job {
 		time.Sunday,
 		make(map[string]interface{}),
 		make(map[string]([]interface{})),
+		time.UTC,
 	}
 }
 
@@ -99,7 +103,7 @@ func (j *Job) run() (result []reflect.Value, err error) {
 		in[k] = reflect.ValueOf(param)
 	}
 	result = f.Call(in)
-	j.lastRun = time.Now()
+	j.lastRun = time.Now().In(j.timeZone)
 	j.scheduleNextRun()
 	return
 }
@@ -141,10 +145,13 @@ func formatTime(t string) (hour, min int, err error) {
 	if err != nil {
 		return
 	}
-
-	if hour < 0 || hour > 23 || min < 0 || min > 59 {
-		err = er
+	sec, err = strconv.Atoi(ts[2])
+	if err != nil {
 		return
+	}
+	if hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59 {
+		err = er
+		return 
 	}
 	return hour, min, nil
 }
@@ -158,13 +165,13 @@ func (j *Job) At(t string) *Job {
 	}
 
 	// time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-	mock := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), int(hour), int(min), 0, 0, loc)
+	mock := time.Date(time.Now().In(j.timeZone).Year(), time.Now().In(j.timeZone).Month(), time.Now().In(j.timeZone).Day(), int(hour), int(min), int(sec), 0, j.timeZone)
 
 	if j.unit == "days" {
 		if time.Now().After(mock) {
 			j.lastRun = mock
 		} else {
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-1, hour, min, 0, 0, loc)
+			j.lastRun = time.Date(time.Now().In(j.timeZone).AddDate(0, 0, -1).Year(), time.Now().In(j.timeZone).AddDate(0, 0, -1).Month(), time.Now().In(j.timeZone).AddDate(0, 0, -1).Day(), hour, min, sec, 0, j.timeZone)
 		}
 	} else if j.unit == "weeks" {
 		if j.startDay != time.Now().Weekday() || (time.Now().After(mock) && j.startDay == time.Now().Weekday()) {
@@ -172,9 +179,9 @@ func (j *Job) At(t string) *Job {
 			if i < 0 {
 				i = 7 + i
 			}
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), hour, min, 0, 0, loc)
+			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), hour, min, sec, 0, j.timeZone)
 		} else {
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-7, hour, min, 0, 0, loc)
+			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-7, hour, min, sec, 0, j.timeZone)
 		}
 	}
 	return j
@@ -188,7 +195,7 @@ func (j *Job) scheduleNextRun() {
 			if i < 0 {
 				i = 7 + i
 			}
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), 0, 0, 0, 0, loc)
+			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), 0, 0, 0, 0, j.timeZone)
 
 		} else {
 			j.lastRun = time.Now()
@@ -224,6 +231,16 @@ func (j *Job) NextScheduledTime() time.Time {
 	return j.nextRun
 }
 
+// Set timezone for timer
+func (j *Job) Zone(timeZone string) *Job {
+	recivedTimeZone, err := time.LoadLocation(timeZone)
+	if err != nil {
+		panic("time zone format error.")
+	}
+	j.timeZone = recivedTimeZone
+	return j
+}
+  
 // the follow functions set the job's unit with seconds,minutes,hours...
 
 // Set the unit with second

@@ -28,6 +28,10 @@ func task() {
 	fmt.Println("I am runnning task.")
 }
 
+func task1() {
+	fmt.Println("I am runnning task1.")
+}
+
 func taskWithParams(a int, b string) {
 	fmt.Println(a, b)
 }
@@ -50,9 +54,11 @@ func main() {
 	gocron.Every(1).Monday().Do(task)
 	gocron.Every(1).Thursday().Do(task)
 
-	// function At() take a string like 'hour:min'
-	gocron.Every(1).Day().At("10:30").Do(task)
-	gocron.Every(1).Monday().At("18:30").Do(task)
+        // function At() take a string like 'hour:min:sec' ->Add your time here
+        gocron.Every(1).Day().Zone("EST").At("12:34:37").Do(task1)
+	// Zone() will handle daylight savings if CST6CDT is used instead of CST.
+	gocron.Every(1).Day().Zone("CST6CDT").At("12:34:37").Do(task1) 
+        gocron.Every(1).Monday().At("18:30:00").Do(task)
 
 	// remove, clear and next_run
 	_, time := gocron.NextRun()
