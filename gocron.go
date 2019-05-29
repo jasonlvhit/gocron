@@ -98,8 +98,8 @@ func (j *Job) run() (result []reflect.Value, err error) {
 	for k, param := range params {
 		in[k] = reflect.ValueOf(param)
 	}
-	result = f.Call(in)
 	j.lastRun = time.Now()
+	result = f.Call(in)
 	j.scheduleNextRun()
 	return
 }
@@ -198,6 +198,14 @@ func (j *Job) scheduleNextRun() {
 	if j.period != 0 {
 		// translate all the units to the Seconds
 		j.nextRun = j.lastRun.Add(j.period * time.Second)
+
+		//Make sure next run is after current time, otherwise this job will never run again
+		for {
+			if j.nextRun.After(time.Now()) {
+				break;
+			}
+			j.nextRun = j.nextRun.Add(j.period * time.Second)
+		}
 	} else {
 		switch j.unit {
 		case "minutes":
