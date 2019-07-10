@@ -21,6 +21,7 @@ package gocron
 import (
 	"errors"
 	"fmt"
+	"github.com/satori/go.uuid"
 	"reflect"
 	"runtime"
 	"sort"
@@ -51,10 +52,16 @@ type Job struct {
 	startDay time.Weekday               // Specific day of the week to start on
 	funcs    map[string]interface{}     // Map for the function task store
 	fparams  map[string]([]interface{}) // Map for function and  params of function
+	uuid     string                     // uuid for the job
 }
 
 // NewJob creates a new job with the time interval.
 func NewJob(interval uint64) *Job {
+	jobId, err := uuid.NewV4()
+	if err != nil {
+		//todo:
+	}
+	id := jobId.String()
 	return &Job{
 		interval,
 		"", "", 0,
@@ -63,6 +70,7 @@ func NewJob(interval uint64) *Job {
 		time.Sunday,
 		make(map[string]interface{}),
 		make(map[string]([]interface{})),
+		id,
 	}
 }
 
@@ -95,7 +103,7 @@ func getFunctionName(fn interface{}) string {
 }
 
 // Do specifies the jobFunc that should be called every time the job runs
-func (j *Job) Do(jobFun interface{}, params ...interface{}) {
+func (j *Job) Do(jobFun interface{}, params ...interface{}) string {
 	typ := reflect.TypeOf(jobFun)
 	if typ.Kind() != reflect.Func {
 		panic("only function can be schedule into the job queue.")
@@ -105,6 +113,7 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) {
 	j.fparams[fname] = params
 	j.jobFunc = fname
 	j.scheduleNextRun()
+	return j.uuid
 }
 
 func formatTime(t string) (hour, min int, err error) {
@@ -389,6 +398,28 @@ func (s *Scheduler) RunAllwithDelay(d int) {
 	}
 }
 
+func (s *Scheduler) RemoveByUuid(id string) {
+	i := 0
+	found := false
+
+	for ; i < s.size; i++ {
+		if s.jobs[i].uuid == id {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return
+	}
+
+	for j := i + 1; j < s.size; j++ {
+		s.jobs[i] = s.jobs[j]
+		i++
+	}
+	s.size = s.size - 1
+}
+
 // Remove specific job j
 func (s *Scheduler) Remove(j interface{}) {
 	i := 0
@@ -405,7 +436,7 @@ func (s *Scheduler) Remove(j interface{}) {
 		return
 	}
 
-	for j := (i + 1); j < s.size; j++ {
+	for j := i + 1; j < s.size; j++ {
 		s.jobs[i] = s.jobs[j]
 		i++
 	}
