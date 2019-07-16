@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
-
-	"github.com/jasonlvhit/gocron"
+	"gocron"
 )
 
 func task() {
@@ -44,11 +44,16 @@ func main() {
 	// gocron.Clear()
 
 	// function Start start all the pending jobs
-	<-gocron.Start()
+	ctx, cancel := context.WithCancel(context.Background())
+	gocron.Start(ctx)
 
 	// also , you can create a your new scheduler,
 	// to run two scheduler concurrently
 	s := gocron.NewScheduler()
 	s.Every(3).Seconds().Do(task)
-	<-s.Start()
+	s.Start(ctx)
+
+	ch := make(chan bool)
+	<-ch
+	cancel()
 }

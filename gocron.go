@@ -19,6 +19,7 @@
 package gocron
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/satori/go.uuid"
@@ -463,8 +464,8 @@ func (s *Scheduler) Clear() {
 
 // Start all the pending jobs
 // Add seconds ticker
-func (s *Scheduler) Start() chan bool {
-	stopped := make(chan bool, 1)
+func (s *Scheduler) Start(ctx context.Context) {
+	//stopped := make(chan bool, 1)
 	ticker := time.NewTicker(1 * time.Second)
 
 	go func() {
@@ -472,14 +473,12 @@ func (s *Scheduler) Start() chan bool {
 			select {
 			case <-ticker.C:
 				s.RunPending()
-			case <-stopped:
+			case <-ctx.Done():
 				ticker.Stop()
 				return
 			}
 		}
 	}()
-
-	return stopped
 }
 
 // The following methods are shortcuts for not having to
@@ -518,13 +517,18 @@ func RunAllwithDelay(d int) {
 }
 
 // Start run all jobs that are scheduled to run
-func Start() chan bool {
-	return defaultScheduler.Start()
+func Start(ctx context.Context) {
+	defaultScheduler.Start(ctx)
 }
 
 // Clear all scheduled jobs
 func Clear() {
 	defaultScheduler.Clear()
+}
+
+// Remove specific job
+func RemoveByUuid(id string) {
+	defaultScheduler.RemoveByUuid(id)
 }
 
 // Remove specific job
