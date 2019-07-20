@@ -105,6 +105,21 @@ func NewJob(interval uint64, options ...func(*Job)) *Job {
 func (j *Job) shouldRun() bool {
 	j.mu.Lock()
 	b := time.Now().After(j.nextRun)
+
+	// pop the set key if it exists and b == true then the job will run
+	// popping removes the item from the Distributed Redis which means other machines running the same
+	// job will not run
+	if j.DistributedRedisClient != nil {
+		res := j.DistributedRedisClient.SPop(redisKey + j.DistributedJobName)
+		if err := res.Err(); err != nil || err == redis.Nil {
+			// the job would have ran, so reset it to the next item in the schedule
+			if b {
+				_ = j.scheduleNextRun(false)
+			}
+			return false
+		}
+	}
+
 	j.mu.Unlock()
 
 	if b {
@@ -146,7 +161,7 @@ func (j *Job) run() ([]reflect.Value, error) {
 	j.lastRun = time.Now()
 	j.mu.Unlock()
 
-	err := j.scheduleNextRun()
+	err := j.scheduleNextRun(true)
 	if err != nil {
 		return result, err
 	}
@@ -182,8 +197,7 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	j.jobFunc = fname
 	j.mu.Unlock()
 
-	// queue the next job, if redis is include add to set
-	j.scheduleNextRun()
+	j.scheduleNextRun(true)
 	return nil
 }
 
@@ -248,7 +262,7 @@ func (j *Job) roundToMidnight(t time.Time) time.Time {
 }
 
 // scheduleNextRun Compute the instant when this job should run next
-func (j *Job) scheduleNextRun() error {
+func (j *Job) scheduleNextRun(running bool) error {
 	now := time.Now()
 	if j.lastRun == time.Unix(0, 0) {
 		j.mu.Lock()
@@ -289,6 +303,16 @@ func (j *Job) scheduleNextRun() error {
 		j.mu.Lock()
 		j.nextRun = j.nextRun.Add(period)
 		j.mu.Unlock()
+
+		if running {
+			// job is being rescheduled so send up another key
+			if j.DistributedRedisClient != nil {
+				if err := j.DistributedRedisClient.SAdd(redisKey + j.DistributedJobName).Err(); err != nil {
+					return err
+				}
+			}
+		}
+
 	}
 
 	return nil
