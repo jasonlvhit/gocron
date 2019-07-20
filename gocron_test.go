@@ -2,8 +2,13 @@ package gocron
 
 import (
 	"fmt"
+	"log"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis"
+	"github.com/go-redis/redis"
 )
 
 var defaultOption = func(j *Job) {
@@ -322,4 +327,167 @@ func TestWeekdayAt(t *testing.T) {
 	weekJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
 	assertEqualTime("next run", t, weekJob.nextRun, exp)
+}
+
+type foo struct {
+	jobNumber int64
+}
+
+func (f *foo) incr() {
+	atomic.AddInt64(&f.jobNumber, 1)
+}
+
+func (f *foo) getN() int64 {
+	return atomic.LoadInt64(&f.jobNumber)
+}
+
+const expectedNumber int64 = 10
+
+var (
+	testF  *foo
+	client *redis.Client
+)
+
+func init() {
+	s, err := miniredis.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// defer s.Close()
+
+	client = redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+	testF = new(foo)
+}
+
+func TestBasicDistributedJob1(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+
+}
+
+func TestBasicDistributedJob2(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("2 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJob3(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("3 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJob4(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("4 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJob5(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("5 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
 }
