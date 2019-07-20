@@ -28,6 +28,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	// perferencing a really stable redis client over exposing a redis interface
+	"github.com/go-redis/redis"
 )
 
 // globals
@@ -49,6 +52,10 @@ const (
 	weeks   = "weeks"
 )
 
+const (
+	redisKey = "gocron:distributed:job:"
+)
+
 // ChangeLoc change default the time location
 func ChangeLoc(newLocation *time.Location) {
 	loc = newLocation
@@ -56,7 +63,9 @@ func ChangeLoc(newLocation *time.Location) {
 
 // Job struct keeping information about job
 type Job struct {
-	ShouldDoImmediately bool // indicates that jobs should start before scheduling
+	ShouldDoImmediately    bool          // indicates that jobs should start before scheduling
+	DistributedRedisClient *redis.Client // if the client is passed in the scheduler will check the redis client before running a job to corridinate with a distributed system
+	DistributedJobName     string        // name assigned to the distributed job, if empty and more than one job is running a redis name collusion will occur
 
 	mu       *sync.Mutex
 	interval uint64                     // pause interval * unit bettween runs
@@ -72,8 +81,8 @@ type Job struct {
 }
 
 // NewJob creates a new job with the time interval.
-func NewJob(interval uint64) *Job {
-	return &Job{
+func NewJob(interval uint64, options ...func(*Job)) *Job {
+	j := &Job{
 		mu:       new(sync.Mutex),
 		interval: interval,
 		jobFunc:  "",
@@ -85,6 +94,11 @@ func NewJob(interval uint64) *Job {
 		funcs:    make(map[string]interface{}),
 		fparams:  make(map[string]([]interface{})),
 	}
+
+	for _, option := range options {
+		option(j)
+	}
+	return j
 }
 
 // True if the job should be run now
@@ -92,6 +106,16 @@ func (j *Job) shouldRun() bool {
 	j.mu.Lock()
 	b := time.Now().After(j.nextRun)
 	j.mu.Unlock()
+
+	if b {
+		go func() {
+			time.Sleep(time.Duration(j.interval*8) * time.Second)
+			j.mu.Lock()
+			j.DistributedRedisClient.SAdd(redisKey+j.DistributedJobName, "added")
+			j.mu.Unlock()
+		}()
+	}
+
 	return b
 }
 
@@ -113,7 +137,9 @@ func (j *Job) run() ([]reflect.Value, error) {
 			}
 			in[k] = reflect.ValueOf(param)
 		}
+		j.mu.Lock()
 		result = f.Call(in)
+		j.mu.Unlock()
 	}
 
 	j.mu.Lock()
@@ -156,6 +182,7 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	j.jobFunc = fname
 	j.mu.Unlock()
 
+	// queue the next job, if redis is include add to set
 	j.scheduleNextRun()
 	return nil
 }
@@ -231,13 +258,11 @@ func (j *Job) scheduleNextRun() error {
 
 	switch j.unit {
 	case days:
-		j.ShouldDoImmediately = true
 		j.mu.Lock()
 		j.nextRun = j.roundToMidnight(j.lastRun)
 		j.nextRun = j.nextRun.Add(j.atTime)
 		j.mu.Unlock()
 	case weeks:
-		j.ShouldDoImmediately = true
 		j.mu.Lock()
 		j.nextRun = j.roundToMidnight(j.lastRun)
 		dayDiff := int(j.startDay)
@@ -258,13 +283,14 @@ func (j *Job) scheduleNextRun() error {
 		return err
 	}
 
+	j.ShouldDoImmediately = true
 	// advance to next possible schedule
 	for j.nextRun.Before(now) || j.nextRun.Before(j.lastRun) {
-		j.ShouldDoImmediately = true
 		j.mu.Lock()
 		j.nextRun = j.nextRun.Add(period)
 		j.mu.Unlock()
 	}
+
 	return nil
 }
 
@@ -279,7 +305,7 @@ func (j *Job) NextScheduledTime() time.Time {
 // the follow functions set the job's unit with seconds,minutes,hours...
 func (j *Job) mustInterval(i uint64) error {
 	if j.interval != i {
-		return fmt.Errorf("interval maust be %d", i)
+		return fmt.Errorf("interval must be %d", i)
 	}
 	return nil
 }
@@ -460,7 +486,12 @@ func (s *Scheduler) Err() error {
 
 // RunPending runs all the jobs that are scheduled to run.
 func (s *Scheduler) RunPending() error {
-	if s.shouldClear {
+	var shouldClear bool
+	s.mu.Lock()
+	shouldClear = s.shouldClear
+	s.mu.Unlock()
+
+	if shouldClear {
 		s.mu.Lock()
 		s.jobs = []*Job{}
 		s.shouldClear = false
@@ -470,6 +501,16 @@ func (s *Scheduler) RunPending() error {
 
 	runnableJobs, n := s.getRunnableJobs()
 	for i := 0; i < n; i++ {
+		// pop the set key if it exists and b == true then the job will run
+		// popping removes the item from the Distributed Redis which means other machines running the same
+		// job will not run
+		if runnableJobs[i].DistributedRedisClient != nil {
+			res := runnableJobs[i].DistributedRedisClient.SRem(redisKey+runnableJobs[i].DistributedJobName, "added")
+			if res.Val() == 0 {
+				continue
+			}
+		}
+
 		s.mu.Lock()
 		_, err := runnableJobs[i].run()
 		s.mu.Unlock()
