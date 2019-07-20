@@ -56,6 +56,8 @@ func ChangeLoc(newLocation *time.Location) {
 
 // Job struct keeping information about job
 type Job struct {
+	ShouldDoImmediately bool // indicates that jobs should start before scheduling
+
 	mu       *sync.Mutex
 	interval uint64                     // pause interval * unit bettween runs
 	jobFunc  string                     // the job jobFunc to run, func[jobFunc]
@@ -67,7 +69,6 @@ type Job struct {
 	funcs    map[string]interface{}     // Map for the function task store
 	fparams  map[string]([]interface{}) // Map for function and  params of function
 	err      error
-	shouldDo bool // indicates that jobs should start before scheduling
 }
 
 // NewJob creates a new job with the time interval.
@@ -103,7 +104,7 @@ func (j *Job) run() ([]reflect.Value, error) {
 	}
 
 	var result []reflect.Value
-	if j.shouldDo {
+	if j.ShouldDoImmediately {
 		in := make([]reflect.Value, len(params))
 		for k, param := range params {
 			// should check for nil items to avoid a panic
@@ -230,13 +231,13 @@ func (j *Job) scheduleNextRun() error {
 
 	switch j.unit {
 	case days:
-		j.shouldDo = true
+		j.ShouldDoImmediately = true
 		j.mu.Lock()
 		j.nextRun = j.roundToMidnight(j.lastRun)
 		j.nextRun = j.nextRun.Add(j.atTime)
 		j.mu.Unlock()
 	case weeks:
-		j.shouldDo = true
+		j.ShouldDoImmediately = true
 		j.mu.Lock()
 		j.nextRun = j.roundToMidnight(j.lastRun)
 		dayDiff := int(j.startDay)
@@ -259,7 +260,7 @@ func (j *Job) scheduleNextRun() error {
 
 	// advance to next possible schedule
 	for j.nextRun.Before(now) || j.nextRun.Before(j.lastRun) {
-		j.shouldDo = true
+		j.ShouldDoImmediately = true
 		j.mu.Lock()
 		j.nextRun = j.nextRun.Add(period)
 		j.mu.Unlock()
@@ -440,9 +441,12 @@ func (s *Scheduler) NextRun() (*Job, time.Time) {
 }
 
 // Every schedule a new periodic job with interval
-func (s *Scheduler) Every(interval uint64, startImmediately bool) *Job {
+func (s *Scheduler) Every(interval uint64, options ...func(*Job)) *Job {
 	job := NewJob(interval)
-	job.shouldDo = startImmediately
+	for _, option := range options {
+		option(job)
+	}
+
 	s.mu.Lock()
 	s.jobs = append(s.jobs, job)
 	s.mu.Unlock()
@@ -545,8 +549,12 @@ func (s *Scheduler) Start() chan bool {
 var defaultScheduler = NewScheduler()
 
 // Every schedules a new periodic job running in specific interval
-func Every(interval uint64) *Job {
-	return defaultScheduler.Every(interval, false)
+func Every(interval uint64, options ...func(*Job)) *Job {
+	job := defaultScheduler.Every(interval)
+	for _, option := range options {
+		option(job)
+	}
+	return job
 }
 
 // RunPending run all jobs that are scheduled to run
