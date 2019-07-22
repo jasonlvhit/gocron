@@ -341,10 +341,14 @@ func (f *foo) getN() int64 {
 	return atomic.LoadInt64(&f.jobNumber)
 }
 
-const expectedNumber int64 = 10
+const (
+	expectedNumber       int64 = 10
+	expectedNumberMinute int64 = 5
+)
 
 var (
 	testF  *foo
+	testF2 *foo
 	client *redis.Client
 )
 
@@ -359,6 +363,7 @@ func init() {
 		Addr: s.Addr(),
 	})
 	testF = new(foo)
+	testF2 = new(foo)
 }
 
 func TestBasicDistributedJob1(t *testing.T) {
@@ -489,5 +494,151 @@ loop:
 
 	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
 		t.Errorf("5 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute1(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+
+}
+
+func TestBasicDistributedJobMinute2(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute3(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute4(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute5(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
 	}
 }

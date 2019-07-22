@@ -105,29 +105,12 @@ func NewJob(interval uint64, options ...func(*Job)) *Job {
 func (j *Job) shouldRun() bool {
 	j.mu.Lock()
 	b := time.Now().After(j.nextRun)
-
-	// pop the set key if it exists and b == true then the job will run
-	// popping removes the item from the Distributed Redis which means other machines running the same
-	// job will not run
-	if j.DistributedRedisClient != nil {
-		res := j.DistributedRedisClient.SPop(redisKey + j.DistributedJobName)
-		if err := res.Err(); err != nil || err == redis.Nil {
-			// the job would have ran, so reset it to the next item in the schedule
-			if b {
-				_ = j.scheduleNextRun(false)
-			}
-			return false
-		}
-	}
-
 	j.mu.Unlock()
 
-	if b {
+	if j.DistributedRedisClient != nil && b {
 		go func() {
 			time.Sleep(time.Duration(j.interval*8) * time.Second)
-			j.mu.Lock()
 			j.DistributedRedisClient.SAdd(redisKey+j.DistributedJobName, "added")
-			j.mu.Unlock()
 		}()
 	}
 
@@ -303,16 +286,6 @@ func (j *Job) scheduleNextRun(running bool) error {
 		j.mu.Lock()
 		j.nextRun = j.nextRun.Add(period)
 		j.mu.Unlock()
-
-		if running {
-			// job is being rescheduled so send up another key
-			if j.DistributedRedisClient != nil {
-				if err := j.DistributedRedisClient.SAdd(redisKey + j.DistributedJobName).Err(); err != nil {
-					return err
-				}
-			}
-		}
-
 	}
 
 	return nil
@@ -525,9 +498,7 @@ func (s *Scheduler) RunPending() error {
 
 	runnableJobs, n := s.getRunnableJobs()
 	for i := 0; i < n; i++ {
-		// pop the set key if it exists and b == true then the job will run
-		// popping removes the item from the Distributed Redis which means other machines running the same
-		// job will not run
+		// remove the item from the set, if something was removed then it was queued
 		if runnableJobs[i].DistributedRedisClient != nil {
 			res := runnableJobs[i].DistributedRedisClient.SRem(redisKey+runnableJobs[i].DistributedJobName, "added")
 			if res.Val() == 0 {
