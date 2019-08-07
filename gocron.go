@@ -365,7 +365,7 @@ func (j *Job) Lock() *Job {
 }
 
 // Scheduler struct, the only data member is the list of jobs.
-// - implements the sort.Interface{} for sorting jobs, by the time nextRun
+// - implements the Unix().Interface{} for sorting jobs, by the time nextRun
 type Scheduler struct {
 	jobs [MAXJOBNUM]*Job // Array store jobs
 	size int             // Size of jobs which jobs holding.
@@ -380,7 +380,7 @@ func (s *Scheduler) Swap(i, j int) {
 }
 
 func (s *Scheduler) Less(i, j int) bool {
-	return s.jobs[j].nextRun.Second() >= s.jobs[i].nextRun.Second()
+	return s.jobs[j].nextRun.Unix() >= s.jobs[i].nextRun.Unix()
 }
 
 // NewScheduler creates a new scheduler
