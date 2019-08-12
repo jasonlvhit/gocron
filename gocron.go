@@ -129,10 +129,10 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) {
 	j.scheduleNextRun()
 }
 
-func formatTime(t string) (hour, min int, err error) {
+func formatTime(t string) (hour, min, sec int, err error) {
 	var er = errors.New("time format error")
 	ts := strings.Split(t, ":")
-	if len(ts) != 2 {
+	if len(ts) != 2 && len(ts) != 3 {
 		err = er
 		return
 	}
@@ -145,21 +145,25 @@ func formatTime(t string) (hour, min int, err error) {
 	if err != nil {
 		return
 	}
-	sec, err = strconv.Atoi(ts[2])
-	if err != nil {
-		return
+	if len(ts) == 3 {
+		sec, err = strconv.Atoi(ts[2])
+		if err != nil {
+			return
+		}
+	} else {
+		sec = 0
 	}
 	if hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59 {
 		err = er
-		return 
+		return
 	}
-	return hour, min, nil
+	return hour, min, sec, nil
 }
 
 //	s.Every(1).Day().At("10:30").Do(task)
 //	s.Every(1).Monday().At("10:30").Do(task)
 func (j *Job) At(t string) *Job {
-	hour, min, err := formatTime(t)
+	hour, min, sec, err := formatTime(t)
 	if err != nil {
 		panic(err)
 	}
@@ -240,7 +244,7 @@ func (j *Job) Zone(timeZone string) *Job {
 	j.timeZone = recivedTimeZone
 	return j
 }
-  
+
 // the follow functions set the job's unit with seconds,minutes,hours...
 
 // Set the unit with second
