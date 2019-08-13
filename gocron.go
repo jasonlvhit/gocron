@@ -54,6 +54,8 @@ type Job struct {
 	funcs    map[string]interface{}   // Map for the function task store
 	fparams  map[string][]interface{} // Map for function and  params of function
 	lock     bool                     // lock the job from running at same time form multiple instances
+	oneShot  bool                     // to execute a function just for one time
+	atDate   time.Time                // datetime to execute a function
 }
 
 // Locker provides a method to lock jobs from running
@@ -82,12 +84,29 @@ func NewJob(interval uint64) *Job {
 		make(map[string]interface{}),
 		make(map[string][]interface{}),
 		false,
+		false,
+		time.Unix(0, 0),
 	}
 }
 
 // True if the job should be run now
 func (j *Job) shouldRun() bool {
-	return time.Now().Unix() >= j.nextRun.Unix()
+	//now := time.Now()
+	//then := time.Date(1990, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	// if j.atDate != time.Unix(0,0){
+
+	// }
+	if j.unit == "date" {
+		if j.oneShot == false && time.Now().Unix() >= j.nextRun.Unix() {
+			j.oneShot = true
+			return true
+		} else {
+			return false
+		}
+	} else {
+		return time.Now().Unix() >= j.nextRun.Unix()
+	}
+
 }
 
 //Run the job and immediately reschedule it
@@ -147,6 +166,7 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) {
 	j.funcs[fname] = jobFun
 	j.fparams[fname] = params
 	j.jobFunc = fname
+
 	j.scheduleNextRun()
 }
 
@@ -209,6 +229,8 @@ func (j *Job) periodDuration() time.Duration {
 		return time.Duration(interval * time.Hour * 24)
 	case "weeks":
 		return time.Duration(interval * time.Hour * 24 * 7)
+	case "date":
+		return time.Duration(0)
 	}
 	panic("unspecified job period") // unspecified period
 }
@@ -239,10 +261,14 @@ func (j *Job) scheduleNextRun() {
 			j.nextRun = j.nextRun.Add(time.Duration(dayDiff) * 24 * time.Hour)
 		}
 		j.nextRun = j.nextRun.Add(j.atTime)
+	case "date":
+		j.nextRun = j.atDate
+		return
 	}
 
 	// advance to next possible schedule
 	for j.nextRun.Before(now) || j.nextRun.Before(j.lastRun) {
+		fmt.Println("hello")
 		j.nextRun = j.nextRun.Add(j.periodDuration())
 	}
 }
@@ -361,6 +387,14 @@ func (j *Job) Sunday() *Job {
 // Lock prevents job to run from multiple instances of gocron
 func (j *Job) Lock() *Job {
 	j.lock = true
+	return j
+}
+
+// Atdate designed to perform an action in just an specific time
+func (j *Job) AtDate(date time.Time) *Job {
+	j.atDate = date
+	j.oneShot = false
+	j.unit = "date"
 	return j
 }
 
