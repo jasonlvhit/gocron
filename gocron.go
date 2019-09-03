@@ -46,6 +46,7 @@ const MAXJOBNUM = 10000
 // Job struct keeping information about job
 type Job struct {
 	interval uint64                   // pause interval * unit bettween runs
+	at       time.Time                // the time to run at
 	jobFunc  string                   // the job jobFunc to run, func[jobFunc]
 	unit     string                   // time units, ,e.g. 'minutes', 'hours'...
 	atTime   time.Duration            // optional time at which this job runs
@@ -75,9 +76,10 @@ func SetLocker(l Locker) {
 }
 
 // NewJob creates a new job with the time interval.
-func NewJob(interval uint64) *Job {
+func NewJob(interval uint64, at time.Time) *Job {
 	return &Job{
 		interval,
+		at,
 		"", "", 0,
 		loc,
 		time.Unix(0, 0),
@@ -127,7 +129,12 @@ func (j *Job) run() (result []reflect.Value, err error) {
 	}
 	result = f.Call(in)
 	j.lastRun = time.Now()
-	j.scheduleNextRun()
+
+	if j.interval != 0 {
+		j.scheduleNextRun()
+	} else {
+		defaultScheduler.Remove(j.funcs[j.jobFunc])
+	}
 	return
 }
 
@@ -262,30 +269,34 @@ func (j *Job) roundToMidnight(t time.Time) time.Time {
 
 // scheduleNextRun Compute the instant when this job should run next
 func (j *Job) scheduleNextRun() {
-	now := time.Now()
-	if j.lastRun == time.Unix(0, 0) {
-		j.lastRun = now
-	}
-
-	switch j.unit {
-	case "seconds", "minutes", "hours":
-		j.nextRun = j.lastRun.Add(j.periodDuration())
-	case "days":
-		j.nextRun = j.roundToMidnight(j.lastRun)
-		j.nextRun = j.nextRun.Add(j.atTime)
-	case "weeks":
-		j.nextRun = j.roundToMidnight(j.lastRun)
-		dayDiff := int(j.startDay)
-		dayDiff -= int(j.nextRun.Weekday())
-		if dayDiff != 0 {
-			j.nextRun = j.nextRun.Add(time.Duration(dayDiff) * 24 * time.Hour)
+	if j.at != time.Unix(0, 0) {
+		j.nextRun = j.at
+	} else {
+		now := time.Now()
+		if j.lastRun == time.Unix(0, 0) {
+			j.lastRun = now
 		}
-		j.nextRun = j.nextRun.Add(j.atTime)
-	}
 
-	// advance to next possible schedule
-	for j.nextRun.Before(now) || j.nextRun.Before(j.lastRun) {
-		j.nextRun = j.nextRun.Add(j.periodDuration())
+		switch j.unit {
+		case "seconds", "minutes", "hours":
+			j.nextRun = j.lastRun.Add(j.periodDuration())
+		case "days":
+			j.nextRun = j.roundToMidnight(j.lastRun)
+			j.nextRun = j.nextRun.Add(j.atTime)
+		case "weeks":
+			j.nextRun = j.roundToMidnight(j.lastRun)
+			dayDiff := int(j.startDay)
+			dayDiff -= int(j.nextRun.Weekday())
+			if dayDiff != 0 {
+				j.nextRun = j.nextRun.Add(time.Duration(dayDiff) * 24 * time.Hour)
+			}
+			j.nextRun = j.nextRun.Add(j.atTime)
+		}
+
+		// advance to next possible schedule
+		for j.nextRun.Before(now) || j.nextRun.Before(j.lastRun) {
+			j.nextRun = j.nextRun.Add(j.periodDuration())
+		}
 	}
 }
 
@@ -469,9 +480,17 @@ func (s *Scheduler) NextRun() (*Job, time.Time) {
 	return s.jobs[0], s.jobs[0].nextRun
 }
 
+// At schedule a new one-off job at time
+func (s *Scheduler) At(at time.Time) *Job {
+	job := NewJob(0, at).Loc(s.loc)
+	s.jobs[s.size] = job
+	s.size++
+	return job
+}
+
 // Every schedule a new periodic job with interval
 func (s *Scheduler) Every(interval uint64) *Job {
-	job := NewJob(interval).Loc(s.loc)
+	job := NewJob(interval, time.Unix(0, 0)).Loc(s.loc)
 	s.jobs[s.size] = job
 	s.size++
 	return job
@@ -573,6 +592,11 @@ var defaultScheduler = NewScheduler()
 // Every schedules a new periodic job running in specific interval
 func Every(interval uint64) *Job {
 	return defaultScheduler.Every(interval)
+}
+
+// At the specified time
+func At(at time.Time) *Job {
+	return defaultScheduler.At(at)
 }
 
 // RunPending run all jobs that are scheduled to run
