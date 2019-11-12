@@ -22,5 +22,9 @@ _testmain.go
 *.exe
 *.test
 
+<<<<<<< HEAD
 # IDE project files
 .idea
+=======
+*.DS_Store
+>>>>>>> prod-safety

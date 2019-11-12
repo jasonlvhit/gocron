@@ -3,12 +3,25 @@ package gocron
 import (
 	"fmt"
 	"log"
+<<<<<<< HEAD
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+=======
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/alicebob/miniredis"
+	"github.com/go-redis/redis"
+>>>>>>> prod-safety
 )
+
+var defaultOption = func(j *Job) {
+	j.ShouldDoImmediately = true
+}
 
 func task() {
 	fmt.Println("I am a running job.")
@@ -18,6 +31,7 @@ func taskWithParams(a int, b string) {
 	fmt.Println(a, b)
 }
 
+<<<<<<< HEAD
 func TestSecond(t *testing.T) {
 	sched := NewScheduler()
 	job := sched.Every(1).Second()
@@ -203,6 +217,26 @@ func TestScheduler_WeekdaysTodayBefore(t *testing.T) {
 	if !job.NextScheduledTime().Equal(timeToSchedule) {
 		t.Error("Job should be run today, at the set time.")
 	}
+=======
+func assertEqualTime(name string, t *testing.T, actual, expected time.Time) {
+	if actual != expected {
+		t.Errorf("test name: %s actual different than expected want: %v -> got: %v", name, expected, actual)
+	}
+}
+
+func TestSecond(t *testing.T) {
+
+	defaultScheduler.Every(1, defaultOption).Second().Do(task)
+	defaultScheduler.Every(1, defaultOption).Second().Do(taskWithParams, 1, "hello")
+	stop := defaultScheduler.Start()
+	time.Sleep(5 * time.Second)
+	close(stop)
+
+	if err := defaultScheduler.Err(); err != nil {
+		t.Error(err)
+	}
+	defaultScheduler.Clear()
+>>>>>>> prod-safety
 }
 
 func Test_formatTime(t *testing.T) {
@@ -340,8 +374,16 @@ func TestTaskAt(t *testing.T) {
 	// Schedule to run in next minute
 	now := time.Now()
 	// Schedule every day At
+<<<<<<< HEAD
 	startAt := fmt.Sprintf("%02d:%02d", now.Hour(), now.Add(time.Minute).Minute())
 	dayJob := s.Every(1).Day().At(startAt)
+=======
+	startAt := fmt.Sprintf("%02d:%02d", now.Hour(), now.Minute()+1)
+	dayJob := s.Every(1, defaultOption).Day().At(startAt)
+	if err := dayJob.Err(); err != nil {
+		t.Error(err)
+	}
+>>>>>>> prod-safety
 
 	dayJobDone := make(chan bool, 1)
 	dayJob.Do(func() {
@@ -351,7 +393,11 @@ func TestTaskAt(t *testing.T) {
 	// Expected start time
 	expectedStartTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Add(time.Minute).Minute(), 0, 0, loc)
 	nextRun := dayJob.NextScheduledTime()
+<<<<<<< HEAD
 	assert.Equal(t, expectedStartTime, nextRun)
+=======
+	assertEqualTime("first run", t, nextRun, startTime)
+>>>>>>> prod-safety
 
 	sStop := s.Start()
 	<-dayJobDone // Wait job done
@@ -361,6 +407,7 @@ func TestTaskAt(t *testing.T) {
 	// Expected next start time 1 day after
 	expectedNextRun := expectedStartTime.AddDate(0, 0, 1)
 	nextRun = dayJob.NextScheduledTime()
+<<<<<<< HEAD
 	assert.Equal(t, expectedNextRun, nextRun)
 }
 
@@ -391,6 +438,9 @@ func TestTaskAtFuture(t *testing.T) {
 	nextRun = dayJob.NextScheduledTime()
 	assert.Equal(t, expectedStartTime, nextRun)
 	assert.Equal(t, false, shouldBeFalse, "Day job was not expected to run as it was in the future")
+=======
+	assertEqualTime("next run", t, nextRun, startNext)
+>>>>>>> prod-safety
 }
 
 func TestDaily(t *testing.T) {
@@ -400,6 +450,7 @@ func TestDaily(t *testing.T) {
 	s := NewScheduler()
 
 	// schedule next run 1 day
+<<<<<<< HEAD
 	dayJob := s.Every(1).Day()
 	dayJob.scheduleNextRun()
 	tomorrow := now.AddDate(0, 0, 1)
@@ -432,6 +483,38 @@ func TestDaily(t *testing.T) {
 		twoHoursBefore.Hour(), twoHoursBefore.Minute(), 0, 0, loc)
 
 	assert.Equal(t, expectedTime, dayJob.nextRun)
+=======
+	dayJob := s.Every(1, defaultOption).Day()
+	dayJob.scheduleNextRun(true)
+	exp := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
+	assertEqualTime("1 day", t, dayJob.nextRun, exp)
+
+	// schedule next run 2 days
+	dayJob = s.Every(2, defaultOption).Days()
+	dayJob.scheduleNextRun(true)
+	exp = time.Date(now.Year(), now.Month(), now.Day()+2, 0, 0, 0, 0, loc)
+	assertEqualTime("2 days", t, dayJob.nextRun, exp)
+
+	// Job running longer than next schedule 1day 2 hours
+	dayJob = s.Every(1, defaultOption).Day()
+	dayJob.lastRun = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()+2, 0, 0, 0, loc)
+	dayJob.scheduleNextRun(true)
+	exp = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
+	assertEqualTime("1 day 2 hours", t, dayJob.nextRun, exp)
+
+	// At() 2 hours before now
+	hour := now.Hour() - 2
+	minute := now.Minute()
+	startAt := fmt.Sprintf("%02d:%02d", hour, minute)
+	dayJob = s.Every(1, defaultOption).Day().At(startAt)
+	if err := dayJob.Err(); err != nil {
+		t.Error(err)
+	}
+
+	dayJob.scheduleNextRun(true)
+	exp = time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
+	assertEqualTime("at 2 hours before now", t, dayJob.nextRun, exp)
+>>>>>>> prod-safety
 }
 
 func TestWeekdayAfterToday(t *testing.T) {
@@ -444,32 +527,40 @@ func TestWeekdayAfterToday(t *testing.T) {
 	var weekJob *Job
 	switch now.Weekday() {
 	case time.Monday:
-		weekJob = s.Every(1).Tuesday()
+		weekJob = s.Every(1, defaultOption).Tuesday()
 	case time.Tuesday:
-		weekJob = s.Every(1).Wednesday()
+		weekJob = s.Every(1, defaultOption).Wednesday()
 	case time.Wednesday:
-		weekJob = s.Every(1).Thursday()
+		weekJob = s.Every(1, defaultOption).Thursday()
 	case time.Thursday:
-		weekJob = s.Every(1).Friday()
+		weekJob = s.Every(1, defaultOption).Friday()
 	case time.Friday:
-		weekJob = s.Every(1).Saturday()
+		weekJob = s.Every(1, defaultOption).Saturday()
 	case time.Saturday:
-		weekJob = s.Every(1).Sunday()
+		weekJob = s.Every(1, defaultOption).Sunday()
 	case time.Sunday:
-		weekJob = s.Every(1).Monday()
+		weekJob = s.Every(1, defaultOption).Monday()
 	}
 
 	// First run
-	weekJob.scheduleNextRun()
+	weekJob.scheduleNextRun(true)
 	exp := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
+<<<<<<< HEAD
 	assert.Equal(t, exp, weekJob.nextRun)
+=======
+	assertEqualTime("first run", t, weekJob.nextRun, exp)
+>>>>>>> prod-safety
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
-	weekJob.scheduleNextRun()
+	weekJob.scheduleNextRun(true)
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
+<<<<<<< HEAD
 	assert.Equal(t, exp, weekJob.nextRun)
+=======
+	assertEqualTime("next run", t, weekJob.nextRun, exp)
+>>>>>>> prod-safety
 }
 
 func TestWeekdayBeforeToday(t *testing.T) {
@@ -482,33 +573,45 @@ func TestWeekdayBeforeToday(t *testing.T) {
 	var weekJob *Job
 	switch now.Weekday() {
 	case time.Monday:
-		weekJob = s.Every(1).Sunday()
+		weekJob = s.Every(1, defaultOption).Sunday()
 	case time.Tuesday:
-		weekJob = s.Every(1).Monday()
+		weekJob = s.Every(1, defaultOption).Monday()
 	case time.Wednesday:
-		weekJob = s.Every(1).Tuesday()
+		weekJob = s.Every(1, defaultOption).Tuesday()
 	case time.Thursday:
-		weekJob = s.Every(1).Wednesday()
+		weekJob = s.Every(1, defaultOption).Wednesday()
 	case time.Friday:
-		weekJob = s.Every(1).Thursday()
+		weekJob = s.Every(1, defaultOption).Thursday()
 	case time.Saturday:
-		weekJob = s.Every(1).Friday()
+		weekJob = s.Every(1, defaultOption).Friday()
 	case time.Sunday:
-		weekJob = s.Every(1).Saturday()
+		weekJob = s.Every(1, defaultOption).Saturday()
 	}
 
+<<<<<<< HEAD
 	weekJob.scheduleNextRun()
 	sixDaysFromNow := now.AddDate(0, 0, 6)
 
 	exp := time.Date(sixDaysFromNow.Year(), sixDaysFromNow.Month(), sixDaysFromNow.Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
+=======
+	weekJob.scheduleNextRun(true)
+	exp := time.Date(now.Year(), now.Month(), now.Day()+6, 0, 0, 0, 0, loc)
+	assertEqualTime("first run", t, weekJob.nextRun, exp)
+>>>>>>> prod-safety
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
+<<<<<<< HEAD
 	weekJob.scheduleNextRun()
 	exp = time.Date(sixDaysFromNow.Year(), sixDaysFromNow.Month(), sixDaysFromNow.Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
+=======
+	weekJob.scheduleNextRun(true)
+	exp = time.Date(now.Year(), now.Month(), now.Day()+6, 0, 0, 0, 0, loc)
+	assertEqualTime("nest run", t, weekJob.nextRun, exp)
+>>>>>>> prod-safety
 }
 
 func TestWeekdayAt(t *testing.T) {
@@ -525,29 +628,57 @@ func TestWeekdayAt(t *testing.T) {
 	var weekJob *Job
 	switch now.Weekday() {
 	case time.Monday:
-		weekJob = s.Every(1).Tuesday().At(startAt)
+		weekJob = s.Every(1, defaultOption).Tuesday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	case time.Tuesday:
-		weekJob = s.Every(1).Wednesday().At(startAt)
+		weekJob = s.Every(1, defaultOption).Wednesday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	case time.Wednesday:
-		weekJob = s.Every(1).Thursday().At(startAt)
+		weekJob = s.Every(1, defaultOption).Thursday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	case time.Thursday:
-		weekJob = s.Every(1).Friday().At(startAt)
+		weekJob = s.Every(1, defaultOption).Friday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	case time.Friday:
-		weekJob = s.Every(1).Saturday().At(startAt)
+		weekJob = s.Every(1, defaultOption).Saturday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	case time.Saturday:
-		weekJob = s.Every(1).Sunday().At(startAt)
+		weekJob = s.Every(1, defaultOption).Sunday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	case time.Sunday:
-		weekJob = s.Every(1).Monday().At(startAt)
+		weekJob = s.Every(1, defaultOption).Monday().At(startAt)
+		if err := weekJob.Err(); err != nil {
+			t.Error(err)
+		}
 	}
 
 	// First run
+<<<<<<< HEAD
 	weekJob.scheduleNextRun()
 	exp := time.Date(now.Year(), now.Month(), now.AddDate(0, 0, 1).Day(), hour, minute, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
+=======
+	weekJob.scheduleNextRun(true)
+	exp := time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
+	assertEqualTime("first run", t, weekJob.nextRun, exp)
+>>>>>>> prod-safety
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
+<<<<<<< HEAD
 	weekJob.scheduleNextRun()
 	exp = time.Date(now.Year(), now.Month(), now.AddDate(0, 0, 1).Day(), hour, minute, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
@@ -683,4 +814,323 @@ func TestGetAt(t *testing.T) {
 func TestGetWeekday(t *testing.T) {
 	j := Every(1).Weekday(time.Wednesday)
 	assert.Equal(t, time.Wednesday, j.GetWeekday())
+=======
+	weekJob.scheduleNextRun(true)
+	exp = time.Date(now.Year(), now.Month(), now.Day()+1, hour, minute, 0, 0, loc)
+	assertEqualTime("next run", t, weekJob.nextRun, exp)
+}
+
+type foo struct {
+	jobNumber int64
+}
+
+func (f *foo) incr() {
+	atomic.AddInt64(&f.jobNumber, 1)
+}
+
+func (f *foo) getN() int64 {
+	return atomic.LoadInt64(&f.jobNumber)
+}
+
+const (
+	expectedNumber       int64 = 10
+	expectedNumberMinute int64 = 5
+)
+
+var (
+	testF  *foo
+	testF2 *foo
+	client *redis.Client
+)
+
+func init() {
+	s, err := miniredis.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// defer s.Close()
+
+	client = redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+	testF = new(foo)
+	testF2 = new(foo)
+}
+
+func TestBasicDistributedJob1(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+
+}
+
+func TestBasicDistributedJob2(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("2 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJob3(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("3 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJob4(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("4 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJob5(t *testing.T) {
+	t.Parallel()
+
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Second().Do(testF.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(10 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumber-1 != testF.getN()) && (expectedNumber != testF.getN()) && (expectedNumber+1 != testF.getN()) {
+		t.Errorf("5 expected number of jobs %d, got %d", expectedNumber, testF.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute1(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+
+}
+
+func TestBasicDistributedJobMinute2(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute3(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute4(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+}
+
+func TestBasicDistributedJobMinute5(t *testing.T) {
+	if t.Skipped() {
+		return
+	}
+
+	t.Parallel()
+	var defaultOption = func(j *Job) {
+		j.DistributedJobName = "counter"
+		j.DistributedRedisClient = client
+	}
+
+	sc := NewScheduler()
+	sc.Every(1, defaultOption).Minute().Do(testF2.incr)
+
+loop:
+	for {
+		select {
+		case <-sc.Start():
+		case <-time.After(60 * time.Second):
+			sc.Clear()
+			break loop
+		}
+	}
+
+	if (expectedNumberMinute-1 != testF2.getN()) && (expectedNumberMinute != testF2.getN()) && (expectedNumberMinute+1 != testF2.getN()) {
+		t.Errorf("1 expected number of jobs %d, got %d", expectedNumberMinute, testF2.getN())
+	}
+>>>>>>> prod-safety
 }
