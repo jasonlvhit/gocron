@@ -35,7 +35,6 @@ import (
 	"github.com/go-redis/redis"
 )
 
-// globals
 var (
 	// Time location, default set by the time.Local (*time.Location)
 	loc                     = time.Local
@@ -45,6 +44,9 @@ var (
 	ErrPeriodNotSpecified   = errors.New("unspecified job period")
 	ErrParameterCannotBeNil = errors.New("nil paramaters cannot be used with reflection")
 )
+
+// MAXJOBNUM max number of jobs, hack it if you need.
+const MAXJOBNUM = 10000
 
 const (
 	seconds = "seconds"
@@ -58,38 +60,31 @@ const (
 	redisKey = "gocron:distributed:job:"
 )
 
-// ChangeLoc change default the time location
-func ChangeLoc(newLocation *time.Location) {
+// ChangeLocation change default the time location
+func ChangeLocation(newLocation *time.Location) {
 	loc = newLocation
-	defaultScheduler.ChangeLoc(newLocation)
+	defaultScheduler.ChangeLocation(newLocation)
 }
-
-<<<<<<< HEAD
-// MAXJOBNUM max number of jobs, hack it if you need.
-const MAXJOBNUM = 10000
-
-const (
-	seconds = "seconds"
-	minutes = "minutes"
-	hours   = "hours"
-	days    = "days"
-	weeks   = "weeks"
-)
 
 // Job struct keeping information about job
 type Job struct {
-	interval uint64                   // pause interval * unit bettween runs
-	jobFunc  string                   // the job jobFunc to run, func[jobFunc]
-	unit     string                   // time units, ,e.g. 'minutes', 'hours'...
-	atTime   time.Duration            // optional time at which this job runs
-	loc      *time.Location           // optional timezone that the atTime is in
-	lastRun  time.Time                // datetime of last run
-	nextRun  time.Time                // datetime of next run
-	startDay time.Weekday             // Specific day of the week to start on
-	funcs    map[string]interface{}   // Map for the function task store
-	fparams  map[string][]interface{} // Map for function and  params of function
-	lock     bool                     // lock the job from running at same time form multiple instances
-	tags     []string                 // allow the user to tag jobs with certain labels
+	ShouldDoImmediately    bool          // indicates that jobs should start before scheduling
+	DistributedRedisClient *redis.Client // if the client is passed in the scheduler will check the redis client before running a job to corridinate with a distributed system
+	DistributedJobName     string        // name assigned to the distributed job, if empty and more than one job is running a redis name collusion will occur
+	mu       *sync.Mutex				 // for locking / unlocking jobs
+	err      error                       // for job error
+	interval uint64                      // pause interval * unit bettween runs
+	jobFunc  string                      // the job jobFunc to run, func[jobFunc]
+	unit     string                      // time units, ,e.g. 'minutes', 'hours'...
+	atTime   time.Duration               // optional time at which this job runs
+	loc      *time.Location              // optional timezone that the atTime is in
+	lastRun  time.Time                   // datetime of last run
+	nextRun  time.Time                   // datetime of next run
+	startDay time.Weekday                // Specific day of the week to start on
+	funcs    map[string]interface{}      // Map for the function task store
+	fparams  map[string][]interface{}    // Map for function and  params of function
+	lock     bool                        // lock the job from running at same time form multiple instances
+	tags     []string                    // allow the user to tag jobs with certain labels
 }
 
 // Locker provides a method to lock jobs from running
@@ -108,56 +103,24 @@ func SetLocker(l Locker) {
 }
 
 // NewJob creates a new job with the time interval.
-func NewJob(interval uint64) *Job {
-	return &Job{
-		interval,
-		"", "", 0,
-		loc,
-		time.Unix(0, 0),
-		time.Unix(0, 0),
-		time.Sunday,
-		make(map[string]interface{}),
-		make(map[string][]interface{}),
-		false,
-		[]string{},
-=======
-// Job struct keeping information about job
-type Job struct {
-	ShouldDoImmediately    bool          // indicates that jobs should start before scheduling
-	DistributedRedisClient *redis.Client // if the client is passed in the scheduler will check the redis client before running a job to corridinate with a distributed system
-	DistributedJobName     string        // name assigned to the distributed job, if empty and more than one job is running a redis name collusion will occur
-
-	mu       *sync.Mutex
-	interval uint64                     // pause interval * unit bettween runs
-	jobFunc  string                     // the job jobFunc to run, func[jobFunc]
-	unit     string                     // time units, ,e.g. 'minutes', 'hours'...
-	atTime   time.Duration              // optional time at which this job runs
-	lastRun  time.Time                  // datetime of last run
-	nextRun  time.Time                  // datetime of next run
-	startDay time.Weekday               // Specific day of the week to start on
-	funcs    map[string]interface{}     // Map for the function task store
-	fparams  map[string]([]interface{}) // Map for function and  params of function
-	err      error
-}
-
-// NewJob creates a new job with the time interval.
 func NewJob(interval uint64, options ...func(*Job)) *Job {
 	j := &Job{
 		mu:       new(sync.Mutex),
 		interval: interval,
 		jobFunc:  "",
+		loc:      loc,
 		unit:     "",
 		atTime:   0,
 		lastRun:  time.Unix(0, 0),
 		nextRun:  time.Unix(0, 0),
 		startDay: time.Sunday,
+		lock:     true,
 		funcs:    make(map[string]interface{}),
-		fparams:  make(map[string]([]interface{})),
+		fparams:  make(map[string][]interface{}),
 	}
 
 	for _, option := range options {
 		option(j)
->>>>>>> prod-safety
 	}
 	return j
 }
@@ -698,8 +661,8 @@ func NewScheduler() *Scheduler {
 	}
 }
 
-// ChangeLoc changes the default time location
-func (s *Scheduler) ChangeLoc(newLocation *time.Location) {
+// ChangeLocation changes the default time location
+func (s *Scheduler) ChangeLocation(newLocation *time.Location) {
 	s.loc = newLocation
 }
 
