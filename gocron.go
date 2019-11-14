@@ -357,20 +357,6 @@ func (j *Job) Tags() []string {
 	return j.tags
 }
 
-func (j *Job) periodDuration() time.Duration {
-	interval := time.Duration(j.interval)
-	switch j.unit {
-	case seconds:
-		return interval * time.Second
-	case minutes:
-		return interval * time.Minute
-	case hours:
-		return interval * time.Hour
-	case days:
-		return time.Duration(interval * time.Hour * 24)
-	case weeks:
-		return time.Duration(interval * time.Hour * 24 * 7)
-=======
 func (j *Job) periodDuration() (time.Duration, error) {
 	interval := time.Duration(j.interval)
 	switch j.unit {
@@ -384,7 +370,6 @@ func (j *Job) periodDuration() (time.Duration, error) {
 		return time.Duration(interval * time.Hour * 24), nil
 	case weeks:
 		return time.Duration(interval * time.Hour * 24 * 7), nil
->>>>>>> prod-safety
 	}
 	return interval, ErrPeriodNotSpecified
 }
@@ -468,11 +453,7 @@ func (j *Job) NextScheduledTime() time.Time {
 // the follow functions set the job's unit with seconds,minutes,hours...
 func (j *Job) mustInterval(i uint64) error {
 	if j.interval != i {
-<<<<<<< HEAD
-		panic(fmt.Sprintf("interval must be %d", i))
-=======
 		return fmt.Errorf("interval must be %d", i)
->>>>>>> prod-safety
 	}
 	return nil
 }
@@ -641,24 +622,15 @@ func (s *Scheduler) Swap(i, j int) {
 }
 
 func (s *Scheduler) Less(i, j int) bool {
-<<<<<<< HEAD
-	return s.jobs[j].nextRun.Unix() >= s.jobs[i].nextRun.Unix()
-=======
 	s.mu.Lock()
-	l := s.jobs[j].nextRun.After(s.jobs[i].nextRun)
+	return s.jobs[j].nextRun.Unix() >= s.jobs[i].nextRun.Unix()
 	s.mu.Unlock()
 	return l
->>>>>>> prod-safety
 }
 
 // NewScheduler creates a new scheduler
 func NewScheduler() *Scheduler {
-<<<<<<< HEAD
-	return &Scheduler{
-		jobs: [MAXJOBNUM]*Job{},
-		size: 0,
-		loc:  loc,
-	}
+	return &Scheduler{mu: new(sync.Mutex), jobs: []*Job{}}
 }
 
 // ChangeLocation changes the default time location
@@ -667,26 +639,11 @@ func (s *Scheduler) ChangeLocation(newLocation *time.Location) {
 }
 
 // Get the current runnable jobs, which shouldRun is True
-func (s *Scheduler) getRunnableJobs() (runningJobs [MAXJOBNUM]*Job, n int) {
-	runnableJobs := [MAXJOBNUM]*Job{}
-	n = 0
-	sort.Sort(s)
-	for i := 0; i < s.size; i++ {
-		if s.jobs[i].shouldRun() {
-			runnableJobs[n] = s.jobs[i]
-			n++
-		} else {
-=======
-	return &Scheduler{mu: new(sync.Mutex), jobs: []*Job{}}
-}
-
-// Get the current runnable jobs, which shouldRun is True
 func (s *Scheduler) getRunnableJobs() ([]*Job, int) {
 	var runnableJobs []*Job
 	sort.Sort(s)
 	for i := 0; i < len(s.jobs); i++ {
 		if !s.jobs[i].shouldRun() {
->>>>>>> prod-safety
 			break
 		}
 		runnableJobs = append(runnableJobs, s.jobs[i])
@@ -879,12 +836,7 @@ func (s *Scheduler) Start() chan bool {
 }
 
 // The following methods are shortcuts for not having to
-<<<<<<< HEAD
 // create a Scheduler instance
-
-=======
-// create a Schduler instance
->>>>>>> prod-safety
 var defaultScheduler = NewScheduler()
 
 // Every schedules a new periodic job running in specific interval
