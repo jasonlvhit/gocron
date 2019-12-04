@@ -288,7 +288,7 @@ func (j *Job) scheduleNextRun() {
 		j.lastRun = now
 	}
 
-	if j.nextRun.After(now) {
+	if j.nextRun.Add(-100 * time.Millisecond).After(now) {
 		return
 	}
 
