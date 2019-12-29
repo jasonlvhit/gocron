@@ -104,7 +104,8 @@ func (j *Job) shouldRun() bool {
 }
 
 //Run the job and immediately reschedule it
-func (j *Job) run() (result []reflect.Value, err error) {
+//If this is a scheduled run make sure we are not early
+func (j *Job) run(scheduledRun bool) (result []reflect.Value, err error) {
 	if j.lock {
 		if locker == nil {
 			err = fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
@@ -121,6 +122,12 @@ func (j *Job) run() (result []reflect.Value, err error) {
 				err = e
 			}
 		}()
+	}
+
+	if scheduledRun {
+		for time.Now().Before(j.nextRun) {
+			time.Sleep(500 * time.Nanosecond)
+		}
 	}
 
 	j.lastRun = time.Now()
@@ -533,7 +540,7 @@ func (s *Scheduler) RunPending() {
 
 	if n != 0 {
 		for i := 0; i < n; i++ {
-			runnableJobs[i].run()
+			runnableJobs[i].run(true)
 		}
 	}
 }
@@ -546,7 +553,7 @@ func (s *Scheduler) RunAll() {
 // RunAllwithDelay runs all jobs with delay seconds
 func (s *Scheduler) RunAllwithDelay(d int) {
 	for i := 0; i < s.size; i++ {
-		s.jobs[i].run()
+		s.jobs[i].run(false)
 		if 0 != d {
 			time.Sleep(time.Duration(d))
 		}
