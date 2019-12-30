@@ -535,21 +535,18 @@ func (j *Job) Lock() *Job {
 // Scheduler struct, the only data member is the list of jobs.
 // - implements the sort.Interface{} for sorting jobs, by the time nextRun
 type Scheduler struct {
-<<<<<<< HEAD
-	jobs [MAXJOBNUM]*Job // Array store jobs
-	size int             // Size of jobs which jobs holding.
+	err         error
+	shouldClear bool
+	mu          *sync.Mutex
+	jobs        []*Job
 	loc  *time.Location  // Location to use when scheduling jobs with specified times
 }
 
 // Jobs returns the list of Jobs from the Scheduler
+//
+// Deprecated: kept for historical reasons
 func (s *Scheduler) Jobs() []*Job {
-	return s.jobs[:s.size]
-=======
-	err         error
-	shouldClear bool
-	mu          *sync.Mutex
-	jobs        []*Job // Slice store jobs
->>>>>>> prod-safety
+	return s.jobs
 }
 
 func (s *Scheduler) Len() int {
