@@ -135,8 +135,7 @@ func (j *Job) run() ([]reflect.Value, error) {
 
 	if j.lock {
 		if locker == nil {
-			err := fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
-			return nil, err
+			return nil, fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
 		}
 		key := getFunctionKey(j.jobFunc)
 
