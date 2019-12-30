@@ -45,9 +45,6 @@ var (
 	ErrParameterCannotBeNil = errors.New("nil paramaters cannot be used with reflection")
 )
 
-// MAXJOBNUM max number of jobs, hack it if you need.
-const MAXJOBNUM = 10000
-
 const (
 	seconds = "seconds"
 	minutes = "minutes"
@@ -87,14 +84,6 @@ type Job struct {
 	tags     []string                    // allow the user to tag jobs with certain labels
 }
 
-// Locker provides a method to lock jobs from running
-// at the same time on multiple instances of gocron.
-// You can provide any locker implementation you wish.
-type Locker interface {
-	Lock(key string) (bool, error)
-	Unlock(key string) error
-}
-
 var locker Locker
 
 // SetLocker sets a locker implementation
@@ -127,16 +116,28 @@ func NewJob(interval uint64, options ...func(*Job)) *Job {
 
 // True if the job should be run now
 func (j *Job) shouldRun() bool {
-<<<<<<< HEAD
-	return time.Now().Unix() >= j.nextRun.Unix()
+	j.mu.Lock()
+	b := time.Now().Unix() >= j.nextRun.Unix()
+	j.mu.Unlock()
+
+	if j.DistributedRedisClient != nil && b {
+		go func() {
+			time.Sleep(time.Duration(j.interval*8) * time.Second)
+			j.DistributedRedisClient.SAdd(redisKey+j.DistributedJobName, "added")
+		}()
+	}
+
+	return b
 }
 
 //Run the job and immediately reschedule it
-func (j *Job) run() (result []reflect.Value, err error) {
+func (j *Job) run() ([]reflect.Value, error) {
+	var err error
+
 	if j.lock {
 		if locker == nil {
-			err = fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
-			return
+			err := fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
+			return nil, err
 		}
 		key := getFunctionKey(j.jobFunc)
 
@@ -151,38 +152,10 @@ func (j *Job) run() (result []reflect.Value, err error) {
 		}()
 	}
 
-	j.lastRun = time.Now()
-	result, err = callJobFuncWithParams(j.funcs[j.jobFunc], j.fparams[j.jobFunc])
-	j.scheduleNextRun()
-	return
-}
-
-func callJobFuncWithParams(jobFunc interface{}, params []interface{}) ([]reflect.Value, error) {
-	f := reflect.ValueOf(jobFunc)
-	if len(params) != f.Type().NumIn() {
-		return nil, errors.New("the number of params is not matched")
-=======
-	j.mu.Lock()
-	b := time.Now().After(j.nextRun)
-	j.mu.Unlock()
-
-	if j.DistributedRedisClient != nil && b {
-		go func() {
-			time.Sleep(time.Duration(j.interval*8) * time.Second)
-			j.DistributedRedisClient.SAdd(redisKey+j.DistributedJobName, "added")
-		}()
-	}
-
-	return b
-}
-
-// Run the job and immdiately reschedule it
-func (j *Job) run() ([]reflect.Value, error) {
 	f := reflect.ValueOf(j.funcs[j.jobFunc])
 	params := j.fparams[j.jobFunc]
 	if len(params) != f.Type().NumIn() {
 		return nil, ErrParamsNotAdapted
->>>>>>> prod-safety
 	}
 
 	var result []reflect.Value
@@ -199,9 +172,6 @@ func (j *Job) run() ([]reflect.Value, error) {
 		result = f.Call(in)
 		j.mu.Unlock()
 	}
-<<<<<<< HEAD
-	return f.Call(in), nil
-=======
 
 	j.mu.Lock()
 	j.lastRun = time.Now()
@@ -213,7 +183,6 @@ func (j *Job) run() ([]reflect.Value, error) {
 	}
 
 	return result, nil
->>>>>>> prod-safety
 }
 
 // for given function fn, get the name of function.
@@ -254,20 +223,11 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	return nil
 }
 
-<<<<<<< HEAD
 // DoSafely does the same thing as Do, but logs unexpected panics, instead of unwinding them up the chain
+//
+// Deprecated: DoSafely exists due to historical compatibility and will be removed soon. Use Job.Do directly instead.
 func (j *Job) DoSafely(jobFun interface{}, params ...interface{}) {
-	recoveryWrapperFunc := func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("Internal panic occurred: %s", r)
-			}
-		}()
-
-		_, _ = callJobFuncWithParams(jobFun, params)
-	}
-
-	j.Do(recoveryWrapperFunc, params...)
+	_ := j.Do(jobFun, params...)
 }
 
 // Jobs returns the list of Jobs from the defaultScheduler
@@ -275,13 +235,9 @@ func Jobs() []*Job {
 	return defaultScheduler.Jobs()
 }
 
-func formatTime(t string) (hour, min int, err error) {
-	var er = errors.New("time format error")
-=======
 func formatTime(t string) (int, int, error) {
 	var hour, min int
 
->>>>>>> prod-safety
 	ts := strings.Split(t, ":")
 	if len(ts) != 2 {
 		return hour, min, ErrTimeFormat
@@ -393,14 +349,10 @@ func (j *Job) scheduleNextRun(running bool) error {
 	}
 
 	switch j.unit {
-<<<<<<< HEAD
 	case seconds, minutes, hours:
+		j.mu.Lock()
 		j.nextRun = j.lastRun.Add(j.periodDuration())
-	case days:
-		j.nextRun = j.roundToMidnight(j.lastRun)
-		j.nextRun = j.nextRun.Add(j.atTime)
-	case weeks:
-=======
+		j.mu.Unlock()
 	case days:
 		j.mu.Lock()
 		j.nextRun = j.roundToMidnight(j.lastRun)
@@ -408,7 +360,6 @@ func (j *Job) scheduleNextRun(running bool) error {
 		j.mu.Unlock()
 	case weeks:
 		j.mu.Lock()
->>>>>>> prod-safety
 		j.nextRun = j.roundToMidnight(j.lastRun)
 		dayDiff := int(j.startDay)
 		dayDiff -= int(j.nextRun.Weekday())
@@ -416,14 +367,7 @@ func (j *Job) scheduleNextRun(running bool) error {
 			j.nextRun = j.nextRun.Add(time.Duration(dayDiff) * 24 * time.Hour)
 		}
 		j.nextRun = j.nextRun.Add(j.atTime)
-<<<<<<< HEAD
-=======
 		j.mu.Unlock()
-	default:
-		j.mu.Lock()
-		j.nextRun = j.lastRun
-		j.mu.Unlock()
->>>>>>> prod-safety
 	}
 
 	period, err := j.periodDuration()
