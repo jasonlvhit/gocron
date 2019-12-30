@@ -41,9 +41,6 @@ func main() {
 	// Do jobs with params
 	gocron.Every(1).Second().Do(taskWithParams, 1, "hello")
 	
-	// Do jobs safely, preventing an unexpected panic from bubbling up
-	gocron.Every(1).Second().DoSafely(taskWithParams, 1, "hello")
-
 	// Do jobs without params
 	gocron.Every(1).Second().Do(task)
 	gocron.Every(2).Seconds().Do(task)
@@ -75,7 +72,7 @@ func main() {
 	_, time := gocron.NextRun()
 	fmt.Println(time)
 
-    // Remove a specific job
+	// Remove a specific job
 	gocron.Remove(task)
 	
 	// Clear all scheduled jobs
