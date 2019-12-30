@@ -22,7 +22,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"runtime"
 	"sort"
@@ -65,23 +64,23 @@ func ChangeLocation(newLocation *time.Location) {
 
 // Job struct keeping information about job
 type Job struct {
-	ShouldDoImmediately    bool          // indicates that jobs should start before scheduling
-	DistributedRedisClient *redis.Client // if the client is passed in the scheduler will check the redis client before running a job to corridinate with a distributed system
-	DistributedJobName     string        // name assigned to the distributed job, if empty and more than one job is running a redis name collusion will occur
-	mu       *sync.Mutex				 // for locking / unlocking jobs
-	err      error                       // for job error
-	interval uint64                      // pause interval * unit bettween runs
-	jobFunc  string                      // the job jobFunc to run, func[jobFunc]
-	unit     string                      // time units, ,e.g. 'minutes', 'hours'...
-	atTime   time.Duration               // optional time at which this job runs
-	loc      *time.Location              // optional timezone that the atTime is in
-	lastRun  time.Time                   // datetime of last run
-	nextRun  time.Time                   // datetime of next run
-	startDay time.Weekday                // Specific day of the week to start on
-	funcs    map[string]interface{}      // Map for the function task store
-	fparams  map[string][]interface{}    // Map for function and  params of function
-	lock     bool                        // lock the job from running at same time form multiple instances
-	tags     []string                    // allow the user to tag jobs with certain labels
+	ShouldDoImmediately    bool                     // indicates that jobs should start before scheduling
+	DistributedRedisClient *redis.Client            // if the client is passed in the scheduler will check the redis client before running a job to corridinate with a distributed system
+	DistributedJobName     string                   // name assigned to the distributed job, if empty and more than one job is running a redis name collusion will occur
+	mu                     *sync.Mutex              // for locking / unlocking jobs
+	err                    error                    // for job error
+	interval               uint64                   // pause interval * unit bettween runs
+	jobFunc                string                   // the job jobFunc to run, func[jobFunc]
+	unit                   string                   // time units, ,e.g. 'minutes', 'hours'...
+	atTime                 time.Duration            // optional time at which this job runs
+	loc                    *time.Location           // optional timezone that the atTime is in
+	lastRun                time.Time                // datetime of last run
+	nextRun                time.Time                // datetime of next run
+	startDay               time.Weekday             // Specific day of the week to start on
+	funcs                  map[string]interface{}   // Map for the function task store
+	fparams                map[string][]interface{} // Map for function and  params of function
+	lock                   bool                     // lock the job from running at same time form multiple instances
+	tags                   []string                 // allow the user to tag jobs with certain labels
 }
 
 var locker Locker
@@ -177,7 +176,7 @@ func (j *Job) run() ([]reflect.Value, error) {
 	j.lastRun = time.Now()
 	j.mu.Unlock()
 
-	err := j.scheduleNextRun(true)
+	err = j.scheduleNextRun(true)
 	if err != nil {
 		return result, err
 	}
@@ -219,15 +218,18 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	j.jobFunc = fname
 	j.mu.Unlock()
 
-	j.scheduleNextRun(true)
+	if err := j.scheduleNextRun(true); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// DoSafely does the same thing as Do, but logs unexpected panics, instead of unwinding them up the chain
+// DoSafely does the same thing as Do
 //
 // Deprecated: DoSafely exists due to historical compatibility and will be removed soon. Use Job.Do directly instead.
 func (j *Job) DoSafely(jobFun interface{}, params ...interface{}) {
-	_ := j.Do(jobFun, params...)
+	_ = j.Do(jobFun, params...)
 }
 
 // Jobs returns the list of Jobs from the defaultScheduler
@@ -273,7 +275,6 @@ func (j *Job) At(t string) *Job {
 	return j
 }
 
-<<<<<<< HEAD
 // GetAt returns the specific time of day the job will run at
 //	s.Every(1).Day().At("10:30").GetAt() == "10:30"
 func (j *Job) GetAt() string {
@@ -317,15 +318,15 @@ func (j *Job) periodDuration() (time.Duration, error) {
 	interval := time.Duration(j.interval)
 	switch j.unit {
 	case seconds:
-		return time.Duration(interval * time.Second), nil
+		return interval * time.Second, nil
 	case minutes:
-		return time.Duration(interval * time.Minute), nil
+		return interval * time.Minute, nil
 	case hours:
-		return time.Duration(interval * time.Hour), nil
+		return interval * time.Hour, nil
 	case days:
-		return time.Duration(interval * time.Hour * 24), nil
+		return interval * time.Hour * 24, nil
 	case weeks:
-		return time.Duration(interval * time.Hour * 24 * 7), nil
+		return interval * time.Hour * 24 * 7, nil
 	}
 	return interval, ErrPeriodNotSpecified
 }
@@ -345,13 +346,18 @@ func (j *Job) scheduleNextRun(running bool) error {
 	}
 
 	if j.nextRun.After(now) {
-		return
+		return nil // does not execute
+	}
+
+	period, err := j.periodDuration()
+	if err != nil {
+		return err
 	}
 
 	switch j.unit {
 	case seconds, minutes, hours:
 		j.mu.Lock()
-		j.nextRun = j.lastRun.Add(j.periodDuration())
+		j.nextRun = j.lastRun.Add(period)
 		j.mu.Unlock()
 	case days:
 		j.mu.Lock()
@@ -368,11 +374,6 @@ func (j *Job) scheduleNextRun(running bool) error {
 		}
 		j.nextRun = j.nextRun.Add(j.atTime)
 		j.mu.Unlock()
-	}
-
-	period, err := j.periodDuration()
-	if err != nil {
-		return err
 	}
 
 	j.ShouldDoImmediately = true
@@ -539,7 +540,7 @@ type Scheduler struct {
 	shouldClear bool
 	mu          *sync.Mutex
 	jobs        []*Job
-	loc  *time.Location  // Location to use when scheduling jobs with specified times
+	loc         *time.Location // Location to use when scheduling jobs with specified times
 }
 
 // Jobs returns the list of Jobs from the Scheduler
@@ -564,7 +565,7 @@ func (s *Scheduler) Swap(i, j int) {
 
 func (s *Scheduler) Less(i, j int) bool {
 	s.mu.Lock()
-	return s.jobs[j].nextRun.Unix() >= s.jobs[i].nextRun.Unix()
+	l := s.jobs[j].nextRun.Unix() >= s.jobs[i].nextRun.Unix()
 	s.mu.Unlock()
 	return l
 }
@@ -602,14 +603,8 @@ func (s *Scheduler) NextRun() (*Job, time.Time) {
 }
 
 // Every schedule a new periodic job with interval
-<<<<<<< HEAD
-func (s *Scheduler) Every(interval uint64) *Job {
-	job := NewJob(interval).Loc(s.loc)
-	s.jobs[s.size] = job
-	s.size++
-=======
 func (s *Scheduler) Every(interval uint64, options ...func(*Job)) *Job {
-	job := NewJob(interval)
+	job := NewJob(interval).Loc(s.loc)
 	for _, option := range options {
 		option(job)
 	}
@@ -617,7 +612,6 @@ func (s *Scheduler) Every(interval uint64, options ...func(*Job)) *Job {
 	s.mu.Lock()
 	s.jobs = append(s.jobs, job)
 	s.mu.Unlock()
->>>>>>> prod-safety
 	return job
 }
 
@@ -680,55 +674,34 @@ func (s *Scheduler) RunAllwithDelay(d int) {
 
 // Remove specific job j by function
 func (s *Scheduler) Remove(j interface{}) {
-<<<<<<< HEAD
-	s.removeByCondition(func(someJob *Job) bool {
-		return someJob.jobFunc == getFunctionName(j)
-	})
-}
-
-// RemoveByRef removes specific job j by reference
-func (s *Scheduler) RemoveByRef(j *Job) {
-	s.removeByCondition(func(someJob *Job) bool {
-		return someJob == j
-	})
-}
-
-func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
-	i := 0
-
-	// keep deleting until no more jobs match the criteria
-	for {
-		found := false
-
-		for ; i < s.size; i++ {
-			if shouldRemove(s.jobs[i]) {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return
-		}
-
-		for j := (i + 1); j < s.size; j++ {
-			s.jobs[i] = s.jobs[j]
-			i++
-		}
-		s.size--
-		s.jobs[s.size] = nil
-=======
 	var nj []*Job
 	for i := 0; i < len(s.jobs); i++ {
 		if s.jobs[i].jobFunc == getFunctionName(j) {
 			continue
 		}
 		nj = append(nj, s.jobs[i])
->>>>>>> prod-safety
 	}
+
+	s.mu.Lock()
+	s.jobs = nj
+	s.mu.Unlock()
 }
 
-<<<<<<< HEAD
+// RemoveByRef removes specific job j by reference
+func (s *Scheduler) RemoveByRef(j *Job) {
+	var nj []*Job
+	for i := 0; i < len(s.jobs); i++ {
+		if s.jobs[i] == j {
+			continue
+		}
+		nj = append(nj, s.jobs[i])
+	}
+
+	s.mu.Lock()
+	s.jobs = nj
+	s.mu.Unlock()
+}
+
 // Scheduled checks if specific job j was already added
 func (s *Scheduler) Scheduled(j interface{}) bool {
 	for _, job := range s.jobs {
@@ -737,11 +710,6 @@ func (s *Scheduler) Scheduled(j interface{}) bool {
 		}
 	}
 	return false
-=======
-	s.mu.Lock()
-	s.jobs = nj
-	s.mu.Unlock()
->>>>>>> prod-safety
 }
 
 // Clear delete all scheduled jobs
