@@ -82,6 +82,33 @@ func SetLocker(l Locker) {
 	locker = l
 }
 
+// Logger interface of gocron
+type Logger interface {
+	Info(msg string)
+	Error(err error, msg string)
+}
+
+var logger Logger
+
+// SetLogger sets a user defined logger
+func SetLogger(l Logger) {
+	logger = l
+}
+
+// errorLog send user defined logger to error method
+func errorLog(err error, msg string) {
+	if logger != nil && err != nil {
+		logger.Error(err, msg)
+	}
+}
+
+// infoLog send user defined logger to info method
+func infoLog(msg string) {
+	if logger != nil {
+		logger.Info(msg)
+	}
+}
+
 // NewJob creates a new job with the time interval.
 func NewJob(interval uint64) *Job {
 	return &Job{
@@ -108,16 +135,19 @@ func (j *Job) run() (result []reflect.Value, err error) {
 	if j.lock {
 		if locker == nil {
 			err = fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
+			errorLog(err, "Run job")
 			return
 		}
 		key := getFunctionKey(j.jobFunc)
 
 		if ok, err := locker.Lock(key); err != nil || !ok {
+			errorLog(err, "Run job: locker.Lock")
 			return nil, err
 		}
 
 		defer func() {
 			if e := locker.Unlock(key); e != nil {
+				errorLog(e, "Run job: locker.Unlock")
 				err = e
 			}
 		}()
@@ -125,6 +155,10 @@ func (j *Job) run() (result []reflect.Value, err error) {
 
 	j.lastRun = time.Now()
 	result, err = callJobFuncWithParams(j.funcs[j.jobFunc], j.fparams[j.jobFunc])
+	errorLog(err, "Run job: callFunc")
+	if err == nil {
+		infoLog(fmt.Sprintf("Run job: %s", getFunctionKey(j.jobFunc)))
+	}
 	j.scheduleNextRun()
 	return
 }
@@ -163,6 +197,7 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) {
 	j.fparams[fname] = params
 	j.jobFunc = fname
 	j.scheduleNextRun()
+	infoLog(fmt.Sprintf("Job run at: %s, Next run: %s", j.lastRun.In(loc).String(), j.nextRun.In(loc).String()))
 }
 
 // DoSafely does the same thing as Do, but logs unexpected panics, instead of unwinding them up the chain
@@ -171,6 +206,7 @@ func (j *Job) DoSafely(jobFun interface{}, params ...interface{}) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("Internal panic occurred: %s", r)
+				errorLog(fmt.Errorf("internal panic occurred: %s", r), "Job run: ")
 			}
 		}()
 
@@ -458,9 +494,10 @@ func (j *Job) Lock() *Job {
 // Scheduler struct, the only data member is the list of jobs.
 // - implements the sort.Interface{} for sorting jobs, by the time nextRun
 type Scheduler struct {
-	jobs [MAXJOBNUM]*Job // Array store jobs
-	size int             // Size of jobs which jobs holding.
-	loc  *time.Location  // Location to use when scheduling jobs with specified times
+	jobs   [MAXJOBNUM]*Job // Array store jobs
+	size   int             // Size of jobs which jobs holding.
+	loc    *time.Location  // Location to use when scheduling jobs with specified times
+	logger Logger
 }
 
 // Jobs returns the list of Jobs from the Scheduler
@@ -483,15 +520,35 @@ func (s *Scheduler) Less(i, j int) bool {
 // NewScheduler creates a new scheduler
 func NewScheduler() *Scheduler {
 	return &Scheduler{
-		jobs: [MAXJOBNUM]*Job{},
-		size: 0,
-		loc:  loc,
+		jobs:   [MAXJOBNUM]*Job{},
+		size:   0,
+		loc:    loc,
+		logger: logger,
 	}
 }
 
 // ChangeLoc changes the default time location
 func (s *Scheduler) ChangeLoc(newLocation *time.Location) {
 	s.loc = newLocation
+}
+
+// SetLogger sets a user defined logger
+func (s *Scheduler) SetLogger(newLogger Logger) {
+	s.logger = newLogger
+}
+
+// sErrorLog send user defined logger to error method
+func sErrorLog(s *Scheduler, err error, msg string) {
+	if s.logger != nil && err != nil {
+		s.logger.Error(err, msg)
+	}
+}
+
+// sInfoLog send user defined logger to info method
+func sInfoLog(s *Scheduler, msg string) {
+	if s.logger != nil {
+		s.logger.Info(msg)
+	}
 }
 
 // Get the current runnable jobs, which shouldRun is True
@@ -532,6 +589,7 @@ func (s *Scheduler) RunPending() {
 	runnableJobs, n := s.getRunnableJobs()
 
 	if n != 0 {
+		sInfoLog(s, "All pending jobs have been run.")
 		for i := 0; i < n; i++ {
 			runnableJobs[i].run()
 		}
@@ -551,6 +609,11 @@ func (s *Scheduler) RunAllwithDelay(d int) {
 			time.Sleep(time.Duration(d))
 		}
 	}
+	if 0 != d {
+		sInfoLog(s, fmt.Sprintf("All jobs have been run and make them delay, delay is %d", d))
+		return
+	}
+	sInfoLog(s, "All jobs have been run.")
 }
 
 // Remove specific job j by function
@@ -577,6 +640,7 @@ func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
 		for ; i < s.size; i++ {
 			if shouldRemove(s.jobs[i]) {
 				found = true
+				sInfoLog(s, fmt.Sprintf("Job removed: %s", getFunctionKey(s.jobs[i].jobFunc)))
 				break
 			}
 		}
@@ -598,6 +662,7 @@ func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
 func (s *Scheduler) Scheduled(j interface{}) bool {
 	for _, job := range s.jobs {
 		if job.jobFunc == getFunctionName(j) {
+			sInfoLog(s, fmt.Sprintf("%s job is scheduled", getFunctionName(j)))
 			return true
 		}
 	}
@@ -609,6 +674,7 @@ func (s *Scheduler) Clear() {
 	for i := 0; i < s.size; i++ {
 		s.jobs[i] = nil
 	}
+	sInfoLog(s, "Clear all scheduled jobs")
 	s.size = 0
 }
 
@@ -617,7 +683,7 @@ func (s *Scheduler) Clear() {
 func (s *Scheduler) Start() chan bool {
 	stopped := make(chan bool, 1)
 	ticker := time.NewTicker(1 * time.Second)
-
+	sInfoLog(s, "Scheduler started")
 	go func() {
 		for {
 			select {
@@ -687,6 +753,7 @@ func Remove(j interface{}) {
 func Scheduled(j interface{}) bool {
 	for _, job := range defaultScheduler.jobs {
 		if job.jobFunc == getFunctionName(j) {
+			sInfoLog(defaultScheduler, fmt.Sprintf("%s job is scheduled", getFunctionName(j)))
 			return true
 		}
 	}

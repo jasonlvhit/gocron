@@ -3,12 +3,32 @@ package gocron
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type CustomLogger struct {
+	Logger
+	Log *log.Logger
+}
+
+func (c CustomLogger) Info(msg string) {
+	c.Log.Print(msg)
+}
+
+func (c CustomLogger) Error(err error, msg string) {
+	c.Log.Fatal(err, msg)
+}
+
+func NewCustomLogger() *CustomLogger {
+	return &CustomLogger{
+		Log: log.New(os.Stdout, "Custom Logger: ", 0),
+	}
+}
 
 func task() {
 	fmt.Println("I am a running job.")
@@ -20,6 +40,7 @@ func taskWithParams(a int, b string) {
 
 func TestSecond(t *testing.T) {
 	sched := NewScheduler()
+	sched.SetLogger(NewCustomLogger())
 	job := sched.Every(1).Second()
 	testJobWithInterval(t, sched, job, 1)
 }
@@ -57,6 +78,7 @@ func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeB
 func TestSafeExecution(t *testing.T) {
 	sched := NewScheduler()
 	success := false
+	sched.SetLogger(NewCustomLogger())
 	sched.Every(1).Second().Do(func(mutableValue *bool) {
 		*mutableValue = !*mutableValue
 	}, &success)
@@ -72,6 +94,7 @@ func TestSafeExecutionWithPanic(t *testing.T) {
 	}()
 
 	sched := NewScheduler()
+	sched.SetLogger(NewCustomLogger())
 	sched.Every(1).Second().DoSafely(func() {
 		log.Panic("I am panicking!")
 	})
@@ -683,4 +706,25 @@ func TestGetAt(t *testing.T) {
 func TestGetWeekday(t *testing.T) {
 	j := Every(1).Weekday(time.Wednesday)
 	assert.Equal(t, time.Wednesday, j.GetWeekday())
+}
+
+func TestSetLogger(t *testing.T) {
+	customLogger := NewCustomLogger()
+
+	SetLogger(customLogger)
+
+	logger.Info("Info")
+}
+
+func TestSetLoggerPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		logger.Info("Info")
+	})
+}
+
+func TestScheduleSetLogger(t *testing.T) {
+	sched := NewScheduler()
+	sched.SetLogger(NewCustomLogger())
+	job := sched.Every(1).Second()
+	testJobWithInterval(t, sched, job, 1)
 }
