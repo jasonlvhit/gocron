@@ -102,6 +102,46 @@ gocron.SetLocker(lockerImplementation)
 gocron.Every(1).Hour().Lock().Do(task)
 ```
 
+If you want to use it with logger.
+```go
+package main
+
+import (
+    "github.com/jasonlvhit/gocron"
+    "log"
+    "os"
+)
+
+
+type CustomLogger struct {
+	Logger
+	Log *log.Logger // or Log *zap.Logger or Log *zero.Logger
+}
+
+func (c CustomLogger) Info(msg string) {
+	c.Log.Print(msg)
+}
+
+func (c CustomLogger) Error(err error, msg string) {
+	c.Log.Fatal(err, msg)
+}
+
+func NewCustomLogger() *CustomLogger {
+	return &CustomLogger{
+		Log: log.New(os.Stdout, "Custom Logger: ", 0),
+	}
+}
+
+func main() {
+    // Scheduler
+    sched := gocron.NewScheduler()
+    sched.SetLogger(NewCustomLogger())
+    
+    //  Global
+    gocron.SetLogger(NewCustomLogger())
+}
+```
+
 Once again, thanks to the great works of Ruby clockwork and Python schedule package. BSD license is used, see the file License for detail.
 
 Looking to contribute? Try to follow these guidelines:
