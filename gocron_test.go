@@ -717,6 +717,7 @@ func TestSetLogger(t *testing.T) {
 }
 
 func TestSetLoggerPanic(t *testing.T) {
+	logger = nil
 	assert.Panics(t, func() {
 		logger.Info("Info")
 	})
