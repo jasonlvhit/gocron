@@ -422,10 +422,10 @@ func TestDaily(t *testing.T) {
 
 	// Job running longer than next schedule 1day 2 hours
 	dayJob = s.Every(1).Day()
-	twoHoursFromNow := now.Add(time.Duration(2 * time.Hour))
+	twoHoursFromNow := now.Add(2 * time.Hour)
 	dayJob.lastRun = time.Date(twoHoursFromNow.Year(), twoHoursFromNow.Month(), twoHoursFromNow.Day(), twoHoursFromNow.Hour(), 0, 0, 0, loc)
 	dayJob.scheduleNextRun()
-	expectedTime = time.Date(now.Year(), now.Month(), now.AddDate(0, 0, 1).Day(), 0, 0, 0, 0, loc)
+	expectedTime = time.Date(twoHoursFromNow.Year(), twoHoursFromNow.Month(), twoHoursFromNow.AddDate(0, 0, 1).Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, expectedTime, dayJob.nextRun)
 
 	// At() 2 hours before now
