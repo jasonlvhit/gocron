@@ -1,6 +1,13 @@
-This package is currently looking for new maintainers (cause @jasonlvhit is in [ICU](https://github.com/996icu/996.ICU)). Please message @jasonlvhit if you are interested.
+### Note from current maintainers:
+A currently maintained fork of this project has been migrated to https://github.com/go-co-op/gocron
 
+Disclaimer: we (the maintainers) tried, with no luck, to get in contact with Jason (the repository owner) in order to add new maintaners or leave the project within an organization. Unfortunately, he hasn't replied for months now (March, 2020). 
+
+So, we decided to move the project to a new repository (as stated above), in order to keep the evolution of the project coming from as many people as possible. Feel free to reach over!
+ 
 ## goCron: A Golang Job Scheduling Package.
+
+This package is currently looking for new maintainers (cause @jasonlvhit is in [ICU](https://github.com/996icu/996.ICU)). Please message @jasonlvhit if you are interested.
 
 [![GgoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](http://godoc.org/github.com/jasonlvhit/gocron)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jasonlvhit/gocron)](https://goreportcard.com/report/github.com/jasonlvhit/gocron)
