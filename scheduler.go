@@ -152,7 +152,7 @@ func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
 func (s *Scheduler) Scheduled(j interface{}) bool {
 ScheduledLoop:
 	for i := 0; i < s.size; i++ {
-		if s.jobs[i] = nil {
+		if s.jobs[i] == nil {
 			continue ScheduledLoop
 		}
 
