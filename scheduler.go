@@ -150,8 +150,13 @@ func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
 
 // Scheduled checks if specific job j was already added
 func (s *Scheduler) Scheduled(j interface{}) bool {
-	for _, job := range s.jobs {
-		if job.jobFunc == getFunctionName(j) {
+ScheduledLoop:
+	for i := 0; i < s.size; i++ {
+		if s.jobs[i] = nil {
+			continue ScheduledLoop
+		}
+
+		if s.jobs[i].jobFunc == getFunctionName(j) {
 			return true
 		}
 	}
