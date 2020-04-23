@@ -57,10 +57,17 @@ func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeB
 func TestSafeExecution(t *testing.T) {
 	sched := NewScheduler()
 	success := false
+	var wc sync.WaitGroup
+	wc.Add(1)
+
 	sched.Every(1).Second().Do(func(mutableValue *bool) {
 		*mutableValue = !*mutableValue
+		wc.Done()
 	}, &success)
+
 	sched.RunAll()
+	wc.Wait()
+
 	assert.Equal(t, true, success, "Task did not get called")
 }
 
