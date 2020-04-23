@@ -63,11 +63,6 @@ func (j *Job) run() ([]reflect.Value, error) {
 		locker.Lock(key)
 		defer locker.Unlock(key)
 	}
-
-	j.lastRun = time.Now()
-	if err := j.scheduleNextRun(); err != nil {
-		return nil, err
-	}
 	result, err := callJobFuncWithParams(j.funcs[j.jobFunc], j.fparams[j.jobFunc])
 	if err != nil {
 		return nil, err
@@ -94,7 +89,11 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	j.funcs[fname] = jobFun
 	j.fparams[fname] = params
 	j.jobFunc = fname
-	j.scheduleNextRun()
+
+	now := time.Now().In(j.loc)
+	if !j.nextRun.After(now) {
+		j.scheduleNextRun()
+	}
 
 	return nil
 }
@@ -199,10 +198,6 @@ func (j *Job) scheduleNextRun() error {
 	now := time.Now()
 	if j.lastRun == time.Unix(0, 0) {
 		j.lastRun = now
-	}
-
-	if j.nextRun.After(now) {
-		return nil
 	}
 
 	periodDuration, err := j.periodDuration()
