@@ -698,3 +698,14 @@ func TestGetWeekday(t *testing.T) {
 	j := Every(1).Weekday(time.Wednesday)
 	assert.Equal(t, time.Wednesday, j.GetWeekday())
 }
+
+func TestScheduleFromPast(t *testing.T) {
+	past := time.Now().Add(-1 * time.Hour)
+
+	sched := NewScheduler()
+	job := sched.Every(3).Hour().From(&past)
+	job.Do(task)
+	next := job.NextScheduledTime()
+
+	assert.Equal(t, past.Hour()+3, next.Hour())
+}
