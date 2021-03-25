@@ -205,6 +205,13 @@ func (j *Job) scheduleNextRun() error {
 		return err
 	}
 
+	if j.nextRun.Before(now) && j.nextRun != time.Unix(0, 0) {
+		for j.nextRun.Before(now) {
+			j.nextRun = j.nextRun.Add(periodDuration)
+		}
+		j.lastRun = j.nextRun.Add(-periodDuration)
+	}
+
 	switch j.unit {
 	case seconds, minutes, hours:
 		j.nextRun = j.lastRun.Add(periodDuration)
