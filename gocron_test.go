@@ -120,7 +120,7 @@ func TestScheduler_WeekdaysTodayAfter(t *testing.T) {
 	if job.NextScheduledTime().Weekday() != timeToSchedule.Weekday() {
 		t.Errorf("Job scheduled for current weekday for earlier time, should still be scheduled for current weekday (but next week)")
 	}
-	nextWeek := time.Date(now.Year(), now.Month(), now.Day()+7, now.Hour(), now.Minute()-1, 0, 0, time.Local)
+	nextWeek := timeToSchedule.Add(7 * 24 * time.Hour)
 	if !job.NextScheduledTime().Equal(nextWeek) {
 		t.Errorf("Job should be scheduled for the correct time next week.\nGot %+v, expected %+v", job.NextScheduledTime(), nextWeek)
 	}
@@ -512,16 +512,15 @@ func TestWeekdayBeforeToday(t *testing.T) {
 	}
 
 	weekJob.scheduleNextRun()
-	sixDaysFromNow := now.AddDate(0, 0, 6)
 
-	exp := time.Date(sixDaysFromNow.Year(), sixDaysFromNow.Month(), sixDaysFromNow.Day(), 0, 0, 0, 0, loc)
+	exp := weekJob.roundToMidnight(now).Add(6 * 24 * time.Hour)
 	assert.Equal(t, exp, weekJob.nextRun)
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
 	weekJob.scheduleNextRun()
-	exp = time.Date(sixDaysFromNow.Year(), sixDaysFromNow.Month(), sixDaysFromNow.Day(), 0, 0, 0, 0, loc)
+	exp = weekJob.roundToMidnight(now).Add(6 * 24 * time.Hour)
 	assert.Equal(t, exp, weekJob.nextRun)
 }
 
