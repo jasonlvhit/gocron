@@ -123,6 +123,18 @@ func (s *Scheduler) RemoveByRef(j *Job) {
 	})
 }
 
+// RemoveByTag removes specific job j by tag
+func (s *Scheduler) RemoveByTag(t string) {
+	s.removeByCondition(func(someJob *Job) bool {
+		for _, a := range someJob.tags {
+			if a == t {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
 	i := 0
 
