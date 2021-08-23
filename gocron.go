@@ -1,5 +1,13 @@
 // Package gocron : A Golang Job Scheduling Package.
 //
+// Note from current maintainers:
+//
+// A currently maintained fork of this project has been migrated to https://github.com/go-co-op/gocron
+//
+// Disclaimer: we (the maintainers) tried, with no luck, to get in contact with Jason (the repository owner) in order to add new maintainers or leave the project within an organization. Unfortunately, he hasn't replied for months now (March, 2020).
+//
+// So, we decided to move the project to a new repository (as stated above), in order to keep the evolution of the project coming from as many people as possible. Feel free to reach over!
+//
 // An in-process scheduler for periodic jobs that uses the builder pattern
 // for configuration. Schedule lets you run Golang functions periodically
 // at pre-determined intervals using a simple, human-friendly syntax.
