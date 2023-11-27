@@ -145,9 +145,7 @@ func (j *Job) Loc(loc *time.Location) *Job {
 // they don't impact the functionality of the job.
 func (j *Job) Tag(t string, others ...string) {
 	j.tags = append(j.tags, t)
-	for _, tag := range others {
-		j.tags = append(j.tags, tag)
-	}
+	j.tags = append(j.tags, others...)
 }
 
 // Untag removes a tag from a job
